@@ -540,7 +540,7 @@ button {
 .buddy {
   position: relative;
   flex: none;
-  height: 150px;
+  height: 170px;
   border-top: 1px solid var(--line);
   overflow: visible;
 }
@@ -571,33 +571,42 @@ button {
   border-radius: 2px;
   background: rgba(255, 255, 255, 0.08);
 }
+/* Sprechblase im Pixel-Stil: weiß, eckige Stufen statt Rundung */
 .bubble {
+  --b: #f3f0e8;
   position: absolute;
   left: 50%;
-  bottom: 112px;
+  bottom: 118px;
   max-width: 220px;
   width: max-content;
-  padding: 7px 11px;
-  border-radius: 10px;
-  background: #34343b;
-  color: var(--text);
-  font-size: 12px;
-  line-height: 1.35;
+  padding: 8px 12px;
+  background: var(--b);
+  color: #222226;
+  font: 400 16px/1.25 'Pixelify Sans', var(--mono);
+  box-shadow: 0 -4px 0 0 var(--b), 0 4px 0 0 var(--b), -4px 0 0 0 var(--b), 4px 0 0 0 var(--b);
   transform: translate(-50%, 6px);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.3s, transform 0.3s;
+  transition: opacity 0.25s steps(3), transform 0.25s steps(3);
   z-index: 5;
 }
+.bubble::before,
 .bubble::after {
   content: '';
   position: absolute;
-  left: 50%;
-  bottom: -5px;
-  margin-left: -5px;
-  border: 5px solid transparent;
-  border-bottom: 0;
-  border-top-color: #34343b;
+  background: var(--b);
+}
+.bubble::before {
+  width: 12px;
+  height: 4px;
+  left: calc(50% - 6px);
+  bottom: -8px;
+}
+.bubble::after {
+  width: 4px;
+  height: 4px;
+  left: calc(50% - 2px);
+  bottom: -12px;
 }
 .bubble.show {
   opacity: 1;
@@ -607,8 +616,8 @@ button {
   position: absolute;
   left: calc(50% + 34px);
   bottom: 86px;
-  font: 700 11px var(--mono);
-  color: var(--faint);
+  font: 400 15px 'Pixelify Sans', var(--mono);
+  color: var(--dim);
   opacity: 0;
 }
 .buddy.sleeping .zzz {

@@ -419,6 +419,7 @@ function goLive() {
 els.live.addEventListener('click', goLive)
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') goLive()
+  if (e.key === 'd' && !e.metaKey && !e.ctrlKey && buddyOn) buddy.demo()
 })
 
 // Zeiten und „in Arbeit“-Punkte regelmäßig auffrischen

@@ -157,24 +157,28 @@ const Buddy = (() => {
       draw()
     }, 170)
 
+    function startle() {
+      mode = 'startle'
+      draw()
+      fig.classList.remove('jump')
+      void fig.offsetWidth
+      fig.classList.add('jump')
+      setTimeout(() => {
+        mode = 'typing'
+        draw()
+      }, 700)
+    }
+    const paper = () => spark('paper')
+    const crumbs = () => {
+      for (let i = 0; i < 5; i++) spark('crumb', `--dx:${(i - 2) * 9}px;animation-delay:${i * 60}ms`)
+    }
+
     function onChange(c, f, s) {
       const woke = mode === 'sleep'
       lastChange = Date.now()
-      if (woke) {
-        mode = 'startle'
-        draw()
-        fig.classList.remove('jump')
-        void fig.offsetWidth
-        fig.classList.add('jump')
-        setTimeout(() => {
-          mode = 'typing'
-          draw()
-        }, 700)
-      }
-      if (c.kind === 'create' && f.changes.length === 1) spark('paper')
-      if (c.removed >= 5 && c.removed > c.added) {
-        for (let i = 0; i < 5; i++) spark('crumb', `--dx:${(i - 2) * 9}px;animation-delay:${i * 60}ms`)
-      }
+      if (woke) startle()
+      if (c.kind === 'create' && f.changes.length === 1) paper()
+      if (c.removed >= 5 && c.removed > c.added) crumbs()
       const now = Date.now()
       if (woke || now - lastRemark > COOLDOWN_MS) {
         const text = remark(c, f, s, { wokeUp: woke })
@@ -192,8 +196,30 @@ const Buddy = (() => {
       draw()
     }
 
+    /** Vorführung aller Reaktionen, ohne echte Änderungen (Taste „d“). */
+    let demoRunning = false
+    function demo() {
+      if (demoRunning) return
+      demoRunning = true
+      const saved = lastChange
+      const typing = () => (lastChange = Date.now())
+      const steps = [
+        [0, () => (typing(), paper(), say('Erste Datei. Los geht’s!'))],
+        [4500, () => (typing(), say('+240 Zeilen am Stück. Mutig.'))],
+        [9000, () => (typing(), crumbs(), say('Mehr gelöscht als geschrieben. Aufräumen!'))],
+        [13500, () => (typing(), say('3. Runde an app.js. Knifflige Stelle?'))],
+        [18000, () => (typing(), paper(), say('Tests! Sehr vernünftig.'))],
+        [22500, () => (typing(), say('Jetzt wird’s hübsch.'))],
+        [27000, () => (typing(), say('Ein Zeichen hier, ein Zeichen da.'))],
+        [31500, () => (lastChange = Date.now() - SLEEP_AFTER - 1)], // einschlafen
+        [38000, () => (startle(), typing(), setTimeout(() => say('Oh! Weiter geht’s.'), 500))],
+        [44000, () => ((lastChange = Math.max(saved, Date.now() - TYPE_FOR - 1)), (demoRunning = false))],
+      ]
+      for (const [t, fn] of steps) setTimeout(fn, t)
+    }
+
     draw()
-    return { onChange, wake, say }
+    return { onChange, wake, say, demo }
   }
 
   return { create }
