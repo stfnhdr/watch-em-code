@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Watch Him Code – zeigt live die Code-Änderungen der zuletzt aktiven
-// Claude-Code-Session. Keine Abhängigkeiten, nur Node-Bordmittel.
+// Watch Him Code – zeigt live die Code-Änderungen laufender Claude-Code-Sessions.
+// Keine Abhängigkeiten, nur Node-Bordmittel.
 'use strict'
 
 const fs = require('fs')
@@ -13,14 +13,17 @@ const PROJECTS = path.join(os.homedir(), '.claude', 'projects')
 const HOST = '127.0.0.1'
 const START_PORT = Number(process.env.WHC_PORT) || 4777
 const POLL_MS = 600 // neue Zeilen lesen
-const SCAN_MS = 2000 // nach einer aktiveren Session suchen
+const SCAN_MS = 2000 // Sessions suchen
+const ACTIVE_MS = 30 * 60 * 1000 // Session gilt so lange als aktiv
+const MAX_SESSIONS = 6
+const MAX_AFTER = 2 * 1024 * 1024 // größere Dateien nur als Diff
 const PUBLIC = path.join(__dirname, 'public')
 
 // ---------------------------------------------------------------------------
 // Protokoll lesen
 
 /** Alle Session-Protokolle: ~/.claude/projects/<projekt>/<session>.jsonl */
-function listSessions() {
+function listSessionFiles() {
   const out = []
   let projects = []
   try {
@@ -41,8 +44,7 @@ function listSessions() {
       if (!name.endsWith('.jsonl')) continue
       const file = path.join(dir, name)
       try {
-        const st = fs.statSync(file)
-        out.push({ file, mtime: st.mtimeMs, id: name.slice(0, -6), dir })
+        out.push({ file, dir, id: name.slice(0, -6), mtime: fs.statSync(file).mtimeMs })
       } catch {}
     }
   }
@@ -50,8 +52,8 @@ function listSessions() {
 }
 
 /** Protokolle von Subagenten liegen in <session>/subagents/*.jsonl. */
-function subagentLogs(session) {
-  const dir = path.join(session.dir, session.id, 'subagents')
+function subagentLogs(s) {
+  const dir = path.join(s.dir, s.id, 'subagents')
   try {
     return fs
       .readdirSync(dir)
@@ -60,6 +62,37 @@ function subagentLogs(session) {
   } catch {
     return []
   }
+}
+
+/** Titel, den der User der Session gegeben hat (falls vorhanden). */
+function sessionTitle(s) {
+  try {
+    const o = JSON.parse(fs.readFileSync(path.join(s.dir, s.id, 'custom-title.json'), 'utf8'))
+    return typeof o.customTitle === 'string' ? o.customTitle : ''
+  } catch {
+    return ''
+  }
+}
+
+/** Wendet einen structuredPatch auf den alten Inhalt an. */
+function applyPatch(original, hunks) {
+  const src = original.split('\n')
+  const out = []
+  let i = 0 // Index in src
+  for (const h of hunks) {
+    const start = Math.max(0, h.oldStart - 1 + (h.oldLines === 0 ? 1 : 0))
+    if (start < i) return null // Hunks nicht sortiert oder überlappend
+    while (i < start && i < src.length) out.push(src[i++])
+    for (const l of h.lines) {
+      if (l[0] === '+') out.push(l.slice(1))
+      else if (l[0] === ' ') {
+        out.push(l.slice(1))
+        i++
+      } else if (l[0] === '-') i++
+    }
+  }
+  while (i < src.length) out.push(src[i++])
+  return out.join('\n')
 }
 
 /** Erstellt aus einem toolUseResult eine Änderung, oder null. */
@@ -82,8 +115,7 @@ function toChange(entry, seq) {
       }))
   }
 
-  const isCreate =
-    r.type === 'create' || (r.originalFile === null && 'content' in r)
+  const isCreate = r.type === 'create' || (r.originalFile === null && 'content' in r)
 
   // Neue Datei ohne Patch: Inhalt als lauter +-Zeilen.
   if (hunks.length === 0) {
@@ -96,12 +128,15 @@ function toChange(entry, seq) {
             ? r.newString
             : null
     if (text === null) return null
-    const lines = text.replace(/\n$/, '').split('\n')
-    if (text === '') lines.length = 0
-    hunks = [
-      { oldStart: 0, oldLines: 0, newStart: 1, newLines: lines.length, lines: lines.map(l => '+' + l) },
-    ]
+    const lines = text === '' ? [] : text.replace(/\n$/, '').split('\n')
+    hunks = [{ oldStart: 0, oldLines: 0, newStart: 1, newLines: lines.length, lines: lines.map(l => '+' + l) }]
   }
+
+  // Inhalt der Datei nach der Änderung, für die Editor-Ansicht.
+  let after = null
+  if (typeof r.content === 'string' && (r.type === 'create' || r.type === 'update')) after = r.content
+  else if (typeof r.originalFile === 'string' && Array.isArray(r.structuredPatch)) after = applyPatch(r.originalFile, hunks)
+  if (after !== null && after.length > MAX_AFTER) after = null
 
   let added = 0
   let removed = 0
@@ -117,10 +152,10 @@ function toChange(entry, seq) {
     filePath,
     rel: displayPath(filePath, cwd),
     kind: isCreate ? 'create' : 'update',
-    notebook: Boolean(r.notebook_path),
     hunks,
     added,
     removed,
+    after,
     ts: Date.parse(entry.timestamp) || Date.now(),
   }
 }
@@ -136,44 +171,28 @@ function displayPath(file, cwd) {
 }
 
 // ---------------------------------------------------------------------------
-// Zustand der beobachteten Session
+// Beobachtete Sessions
 
 let seq = 0
-const state = {
-  session: null, // { file, id, dir }
-  cwd: '',
-  changes: [],
-  logs: new Map(), // file -> { offset, rest }
-}
+/** id -> { id, file, dir, mtime, cwd, title, changes[], logs: Map } */
+const sessions = new Map()
 
-function resetTo(session) {
-  state.session = session
-  state.cwd = ''
-  state.changes = []
-  state.logs = new Map()
+function addSession(info) {
+  const s = { ...info, cwd: '', title: sessionTitle(info), changes: [], logs: new Map() }
+  sessions.set(s.id, s)
   const fresh = []
-  for (const file of [session.file, ...subagentLogs(session)]) readNew(file, fresh)
+  for (const file of [s.file, ...subagentLogs(s)]) readNew(s, file, fresh)
   fresh.sort((a, b) => a.ts - b.ts)
-  state.changes = fresh
-  broadcast('reset', snapshot())
-}
-
-function snapshot() {
-  const s = state.session
-  return {
-    sessionId: s ? s.id : null,
-    cwd: state.cwd,
-    project: state.cwd ? path.basename(state.cwd) : '',
-    changes: state.changes,
-  }
+  s.changes = fresh
+  return s
 }
 
 /** Liest neue vollständige Zeilen einer Protokolldatei. */
-function readNew(file, sink) {
-  let log = state.logs.get(file)
+function readNew(s, file, sink) {
+  let log = s.logs.get(file)
   if (!log) {
     log = { offset: 0, rest: '' }
-    state.logs.set(file, log)
+    s.logs.set(file, log)
   }
   let size
   try {
@@ -193,8 +212,7 @@ function readNew(file, sink) {
     const buf = Buffer.alloc(len)
     fs.readSync(fd, buf, 0, len, log.offset)
     log.offset = size
-    const text = log.rest + buf.toString('utf8')
-    const lines = text.split('\n')
+    const lines = (log.rest + buf.toString('utf8')).split('\n')
     log.rest = lines.pop() // unvollständige letzte Zeile aufheben
     for (const line of lines) {
       if (!line.includes('toolUseResult') && !line.includes('"cwd"')) continue
@@ -204,8 +222,7 @@ function readNew(file, sink) {
       } catch {
         continue
       }
-      if (typeof entry.cwd === 'string' && !entry.isSidechain) state.cwd = entry.cwd
-      else if (!state.cwd && typeof entry.cwd === 'string') state.cwd = entry.cwd
+      if (typeof entry.cwd === 'string' && (!entry.isSidechain || !s.cwd)) s.cwd = entry.cwd
       const change = toChange(entry, ++seq)
       if (change) sink.push(change)
     }
@@ -214,38 +231,111 @@ function readNew(file, sink) {
   }
 }
 
-function poll() {
-  const s = state.session
-  if (!s) return
-  const fresh = []
-  const files = [s.file, ...subagentLogs(s)]
-  for (const file of files) readNew(file, fresh)
-  fresh.sort((a, b) => a.ts - b.ts)
-  for (const c of fresh) {
-    state.changes.push(c)
-    broadcast('change', c)
+function sessionInfo(s) {
+  const last = s.changes.length ? s.changes[s.changes.length - 1].ts : 0
+  return {
+    id: s.id,
+    project: s.cwd ? path.basename(s.cwd) : '',
+    cwd: s.cwd,
+    title: s.title,
+    active: s.mtime,
+    lastChange: last,
+    count: s.changes.length,
   }
 }
 
+/** Snapshot ohne Dateiinhalt bei älteren Änderungen (nur der letzte Stand je Datei). */
+function slimChanges(changes) {
+  const latest = new Map()
+  for (const c of changes) latest.set(c.filePath, c.id)
+  return changes.map(c => (latest.get(c.filePath) === c.id ? c : { ...c, after: null }))
+}
+
+function snapshotV2() {
+  return {
+    sessions: [...sessions.values()].map(s => ({ ...sessionInfo(s), changes: slimChanges(s.changes) })),
+  }
+}
+
+// Für die eingefrorene Basis-Ansicht (/base/): nur die zuletzt aktive Session.
+function primary() {
+  let best = null
+  for (const s of sessions.values()) if (!best || s.mtime > best.mtime) best = s
+  return best
+}
+function snapshotV1() {
+  const s = primary()
+  return {
+    sessionId: s ? s.id : null,
+    cwd: s ? s.cwd : '',
+    project: s && s.cwd ? path.basename(s.cwd) : '',
+    changes: s ? s.changes.map(c => ({ ...c, after: undefined })) : [],
+  }
+}
+
+function poll() {
+  for (const s of sessions.values()) {
+    const fresh = []
+    for (const file of [s.file, ...subagentLogs(s)]) readNew(s, file, fresh)
+    if (!fresh.length) continue
+    fresh.sort((a, b) => a.ts - b.ts)
+    for (const c of fresh) {
+      s.changes.push(c)
+      broadcast(2, 'change', { sessionId: s.id, change: c })
+      if (primary() === s) broadcast(1, 'change', { ...c, after: undefined })
+    }
+    broadcast(2, 'session', sessionInfo(s))
+  }
+}
+
+let lastPrimary = null
 function scan() {
-  const sessions = listSessions()
-  if (sessions.length === 0) return
-  sessions.sort((a, b) => b.mtime - a.mtime)
-  const newest = sessions[0]
-  if (!state.session || newest.file !== state.session.file) {
-    console.log(`Beobachte Session ${newest.id}`)
-    resetTo(newest)
+  const now = Date.now()
+  const files = listSessionFiles().sort((a, b) => b.mtime - a.mtime)
+  const wanted = files.filter((f, i) => i === 0 || now - f.mtime < ACTIVE_MS).slice(0, MAX_SESSIONS)
+  const wantedIds = new Set(wanted.map(f => f.id))
+  let changed = false
+
+  for (const id of [...sessions.keys()])
+    if (!wantedIds.has(id)) {
+      sessions.delete(id)
+      changed = true
+    }
+  for (const f of wanted) {
+    const s = sessions.get(f.id)
+    if (!s) {
+      addSession(f)
+      changed = true
+    } else {
+      if (s.mtime !== f.mtime) {
+        s.mtime = f.mtime
+        broadcast(2, 'session', sessionInfo(s))
+      }
+      const title = sessionTitle(s)
+      if (title !== s.title) {
+        s.title = title
+        broadcast(2, 'session', sessionInfo(s))
+      }
+    }
+  }
+  if (changed) broadcast(2, 'reset', snapshotV2())
+
+  const p = primary()
+  if (p && p !== lastPrimary) {
+    lastPrimary = p
+    console.log(`Aktivste Session: ${p.id}`)
+    broadcast(1, 'reset', snapshotV1())
   }
 }
 
 // ---------------------------------------------------------------------------
 // HTTP + Server-Sent Events
 
-const clients = new Set()
+const clients = new Set() // { res, v }
 
-function broadcast(event, data) {
+function broadcast(v, event, data) {
   const msg = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`
-  for (const res of clients) res.write(msg)
+  for (const c of clients) if (c.v === v) c.res.write(msg)
 }
 
 const TYPES = {
@@ -259,14 +349,16 @@ const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://localhost')
 
   if (url.pathname === '/events') {
+    const v = url.searchParams.get('v') === '2' ? 2 : 1
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       Connection: 'keep-alive',
     })
-    res.write(`event: reset\ndata: ${JSON.stringify(snapshot())}\n\n`)
-    clients.add(res)
-    req.on('close', () => clients.delete(res))
+    res.write(`event: reset\ndata: ${JSON.stringify(v === 2 ? snapshotV2() : snapshotV1())}\n\n`)
+    const client = { res, v }
+    clients.add(client)
+    req.on('close', () => clients.delete(client))
     return
   }
 
@@ -295,10 +387,10 @@ const server = http.createServer((req, res) => {
   })
 })
 
-// Hält die Verbindungen hinter Proxys und Energiesparmodi offen.
+// Hält die Verbindungen offen.
 setInterval(() => {
-  for (const res of clients) res.write(': ping\n\n')
-}, 20000)
+  for (const c of clients) c.res.write(': ping\n\n')
+}, 20000).unref()
 
 function openBrowser(url) {
   if (process.env.WHC_NO_OPEN) return
@@ -328,4 +420,5 @@ function listen(port) {
   })
 }
 
-listen(START_PORT)
+if (require.main === module) listen(START_PORT)
+else module.exports = { applyPatch, toChange }

@@ -7,24 +7,37 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <header class="top">
-      <div class="brand"><span class="eye"></span>Watch Him Code</div>
-      <div class="project" id="project"></div>
-      <div class="spacer"></div>
-      <div class="totals" id="totals"></div>
-      <button class="live" id="live" title="Der neuesten Änderung folgen (Esc)">
-        <span class="dot"></span><span id="live-label">Live</span>
-      </button>
+    <header class="titlebar">
+      <div class="app">Watch Him Code</div>
+      <nav class="sessions" id="sessions"></nav>
+      <div class="tools">
+        <button class="tool" id="buddy-toggle" title="Pixel-Junior ein/aus">
+          <svg viewBox="0 0 10 10" width="14" height="14" shape-rendering="crispEdges">
+            <rect x="2" y="1" width="6" height="2" fill="currentColor" />
+            <rect x="2" y="3" width="6" height="4" fill="currentColor" opacity=".55" />
+            <rect x="1" y="7" width="8" height="2" fill="currentColor" />
+          </svg>
+        </button>
+        <button class="live" id="live" title="Der neuesten Änderung folgen (Esc)">
+          <span class="dot"></span><span id="live-label">Live</span>
+        </button>
+      </div>
     </header>
 
     <main class="layout">
-      <aside class="files" id="files"></aside>
-      <section class="diff" id="diff"></section>
+      <aside class="navigator">
+        <div class="tree" id="tree"></div>
+        <div class="buddy" id="buddy"></div>
+      </aside>
+      <section class="editor-area">
+        <div class="tabs" id="tabs"></div>
+        <div class="jumpbar" id="jumpbar"></div>
+        <div class="editor" id="editor"></div>
+      </section>
     </main>
 
-    <div class="toast" id="toast"></div>
-
     <script src="highlight.js"></script>
+    <script src="buddy.js"></script>
     <script src="app.js"></script>
   </body>
 </html>
