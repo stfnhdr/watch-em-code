@@ -6,27 +6,92 @@
   font-display: swap;
 }
 
-/* Angelehnt an Xcode „Default (Dark)“: neutrales Grau, kaum Rahmen,
-   Trennung über Grautöne. Farben bewusst gedämpft. */
-:root {
-  --bg: #1f1f23; /* Editor */
+/* Farben ------------------------------------------------------------------
+   Dunkel angelehnt an Xcode „Default (Dark)“, Hell an „Default (Light)“.
+   Bewusst gedämpft. Alle Farben nur über diese Variablen. */
+:root,
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #1f1f23; /* Inhalt */
   --side: #232327; /* Navigator */
-  --bar: #2a2a2f; /* Titelleiste */
-  --sel: #3a3a42; /* Auswahl */
+  --title: #161619; /* Titelleiste */
+  --tab: #222226;
+  --tab-hover: #29292e;
+  --sel: #3a3a42;
   --hover: rgba(255, 255, 255, 0.04);
   --line: rgba(255, 255, 255, 0.07);
+  --edge: rgba(0, 0, 0, 0.35);
   --text: #dcdce0;
   --dim: #8e8e96;
   --faint: #5f5f68;
+  --panel: #252529;
+  --panel-2: #2a2a2f;
+  --popover: #2c2c32;
+  --thumb: rgba(255, 255, 255, 0.09);
+  --shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  --tint: 0.07;
 
-  --add: 98, 178, 128; /* neu / hinzugefügt */
-  --mod: 214, 160, 82; /* geändert */
-  --del: 214, 110, 110; /* gelöscht */
+  --add: 98, 178, 128;
+  --mod: 214, 160, 82;
+  --del: 214, 110, 110;
+  --ghost-text: #b89d9d;
 
+  --bubble-bg: #f3f0e8;
+  --bubble-fg: #222226;
+
+  --sx-k: #d98ab4;
+  --sx-s: #e39a85;
+  --sx-n: #d4c27a;
+  --sx-c: #6f7c88;
+  --sx-f: #82c4b2;
+  --sx-t: #8ccde3;
+  --sx-p: #a3a3ab;
+  --sx-attr: #d4b07a;
+}
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: #ffffff;
+  --side: #f4f4f6;
+  --title: #e2e2e7;
+  --tab: #ececf0;
+  --tab-hover: #f4f4f7;
+  --sel: #dcdde4;
+  --hover: rgba(0, 0, 0, 0.04);
+  --line: rgba(0, 0, 0, 0.08);
+  --edge: rgba(0, 0, 0, 0.1);
+  --text: #1d1d1f;
+  --dim: #5f5f67;
+  --faint: #a3a3ab;
+  --panel: #fafafb;
+  --panel-2: #f1f1f4;
+  --popover: #ffffff;
+  --thumb: rgba(0, 0, 0, 0.16);
+  --shadow: 0 12px 32px rgba(0, 0, 0, 0.14);
+  --tint: 0.1;
+
+  --add: 38, 148, 88;
+  --mod: 196, 126, 20;
+  --del: 200, 68, 68;
+  --ghost-text: #a26b6b;
+
+  --bubble-bg: #2b2b30;
+  --bubble-fg: #f3f0e8;
+
+  --sx-k: #a8329a;
+  --sx-s: #b4412f;
+  --sx-n: #3b3fae;
+  --sx-c: #7a8692;
+  --sx-f: #2f6f75;
+  --sx-t: #10598a;
+  --sx-p: #5b5b63;
+  --sx-attr: #8a5a14;
+}
+:root {
   --mono: 'SF Mono', ui-monospace, 'Cascadia Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
   --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   --code-size: 15px;
   --code-lh: 1.65;
+  --radius: 12px;
 }
 
 * {
@@ -54,23 +119,41 @@ button {
   padding: 0;
   cursor: pointer;
 }
+.plus {
+  color: rgb(var(--add));
+}
+.minus {
+  color: rgb(var(--del));
+}
 
 /* Titelleiste mit Session-Tabs -------------------------------------------- */
 .titlebar {
   display: flex;
   align-items: flex-end;
   gap: 16px;
-  height: 46px;
-  padding: 0 12px 0 16px;
-  background: #161619;
+  height: 52px;
+  padding: 0 12px 0 18px;
+  background: var(--title);
 }
+/* Pixel-Logo: dunkles Orange innen, kräftiger oranger Pixelrand (8 Richtungen) */
 .app {
+  --logo-fill: #b8531c;
+  --logo-edge: #ff8f2e;
   align-self: center;
-  color: var(--faint);
-  font-weight: 600;
-  font-size: 12px;
-  letter-spacing: 0.02em;
+  margin-right: 6px;
+  padding: 0 4px;
+  color: var(--logo-fill);
+  --logo-drop: #5a250b;
+  font: 400 22px/1 'Pixelify Sans', var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 2px;
   white-space: nowrap;
+  /* Retro-Arcade: Pixelrand, darunter ein harter, versetzter Schatten */
+  text-shadow: 2px 0 var(--logo-edge), -2px 0 var(--logo-edge), 0 2px var(--logo-edge), 0 -2px var(--logo-edge),
+    2px 2px var(--logo-edge), -2px -2px var(--logo-edge), 2px -2px var(--logo-edge), -2px 2px var(--logo-edge),
+    4px 4px var(--logo-drop), 2px 4px var(--logo-drop), 4px 2px var(--logo-drop), 0 4px var(--logo-drop),
+    -2px 4px var(--logo-drop);
+  user-select: none;
 }
 .sessions {
   flex: 1;
@@ -92,7 +175,7 @@ button {
   max-width: 280px;
   padding: 0 16px 0 13px;
   border-radius: 9px 9px 0 0;
-  background: #222226;
+  background: var(--tab);
   color: var(--dim);
   white-space: nowrap;
 }
@@ -107,7 +190,7 @@ button {
   text-overflow: ellipsis;
 }
 .session:hover {
-  background: #29292e;
+  background: var(--tab-hover);
   color: var(--text);
 }
 .session.selected {
@@ -115,7 +198,6 @@ button {
   color: var(--text);
   font-weight: 500;
 }
-/* geschwungene Übergänge links und rechts unten, wie bei Browser-Tabs */
 .session.selected::before,
 .session.selected::after {
   content: '';
@@ -170,27 +252,26 @@ button {
   align-self: center;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
 }
 .tool {
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 26px;
+  width: 30px;
+  height: 28px;
   border-radius: 6px;
-  color: var(--faint);
-}
-.tool:hover {
-  background: var(--hover);
-}
-.tool.on {
   color: var(--dim);
+}
+.tool:hover,
+.tool.open {
+  background: var(--hover);
+  color: var(--text);
 }
 .live {
   display: flex;
   align-items: center;
   gap: 7px;
-  height: 26px;
+  height: 28px;
   padding: 0 11px;
   border-radius: 6px;
   color: var(--dim);
@@ -214,6 +295,66 @@ button {
   background: rgb(var(--del));
 }
 
+/* Einstellungen */
+.settings-wrap {
+  position: relative;
+}
+.settings {
+  position: absolute;
+  right: 0;
+  top: 38px;
+  z-index: 20;
+  width: 290px;
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--popover);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.settings[hidden] {
+  display: none;
+}
+.setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--dim);
+}
+.seg {
+  display: flex;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--hover);
+  border: 1px solid var(--line);
+}
+.seg button {
+  padding: 4px 10px;
+  border-radius: 6px;
+  color: var(--dim);
+  font-size: 12px;
+}
+.seg button.on {
+  background: var(--sel);
+  color: var(--text);
+}
+.keys {
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  color: var(--faint);
+  font-size: 11.5px;
+}
+kbd {
+  font: 11px var(--mono);
+  padding: 0 4px;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+  color: var(--dim);
+}
+
 /* Layout ------------------------------------------------------------------ */
 .layout {
   flex: 1;
@@ -221,11 +362,14 @@ button {
   grid-template-columns: 260px 1fr;
   min-height: 0;
 }
+.view-cards .layout {
+  grid-template-columns: minmax(250px, 310px) 1fr;
+}
 .navigator {
   display: flex;
   flex-direction: column;
   background: var(--side);
-  border-right: 1px solid rgba(0, 0, 0, 0.35);
+  border-right: 1px solid var(--edge);
   min-height: 0;
 }
 .editor-area {
@@ -234,13 +378,24 @@ button {
   min-width: 0;
   min-height: 0;
 }
-
-/* Navigator --------------------------------------------------------------- */
-.tree {
+.list {
   flex: 1;
   overflow: auto;
   padding: 10px 6px;
 }
+.view-cards .list {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.empty-list {
+  padding: 24px 12px;
+  color: var(--faint);
+  line-height: 1.6;
+}
+
+/* Editor-Ansicht: Navigator als Ordnerbaum --------------------------------- */
 .node {
   display: flex;
   align-items: center;
@@ -291,35 +446,133 @@ button {
 .status.M {
   color: rgb(var(--mod));
 }
-.node.flash {
-  animation: rowflash 1.6s ease-out;
-}
-@keyframes rowflash {
-  0% {
-    background: rgba(var(--tone, var(--mod)), 0.28);
-  }
-}
 .node.A {
   --tone: var(--add);
 }
 .node.M {
   --tone: var(--mod);
 }
+.node.flash {
+  animation: rowflash 1.6s ease-out;
+}
+@keyframes rowflash {
+  0% {
+    background: rgba(var(--tone), 0.28);
+  }
+}
 .icon {
   flex: none;
 }
-.empty-tree {
-  padding: 24px 12px;
+
+/* Karten-Ansicht: Navigator als Dateikarten -------------------------------- */
+.card {
+  --tone: var(--mod);
+  position: relative;
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px 11px;
+  border-radius: var(--radius);
+  border: 1px solid rgba(var(--tone), 0.16);
+  background: rgba(var(--tone), 0.05);
+  transition: background 0.25s, border-color 0.25s;
+}
+.card.create {
+  --tone: var(--add);
+}
+.card:hover {
+  background: rgba(var(--tone), 0.09);
+}
+.card.active {
+  background: rgba(var(--tone), 0.14);
+  border-color: rgba(var(--tone), 0.45);
+}
+.card.flash {
+  animation: glow 1.8s ease-out;
+}
+@keyframes glow {
+  0% {
+    background: rgba(var(--tone), 0.32);
+    box-shadow: 0 0 0 3px rgba(var(--tone), 0.25), 0 0 24px rgba(var(--tone), 0.25);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(var(--tone), 0);
+  }
+}
+.card .row1 {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.card .name {
+  font-weight: 600;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+.card .badge {
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  color: rgb(var(--tone));
+  background: rgba(var(--tone), 0.13);
+}
+.card .dir {
+  font-family: var(--mono);
+  font-size: 11.5px;
   color: var(--faint);
-  line-height: 1.6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin: 1px 0 7px;
+  direction: rtl;
+  text-align: left;
+}
+.card .stats {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.card .when {
+  margin-left: auto;
+  color: var(--faint);
+  font-family: var(--sans);
+  font-size: 11.5px;
+}
+.bar {
+  flex: 0 0 80px;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(138, 138, 138, 0.18);
+  overflow: hidden;
+}
+.bar .fill {
+  display: flex;
+  height: 100%;
+  border-radius: 999px;
+  overflow: hidden;
+  transition: width 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.bar .a {
+  background: rgb(var(--add));
+  transition: flex-grow 0.7s;
+}
+.bar .d {
+  background: rgb(var(--del));
+  transition: flex-grow 0.7s;
 }
 
-/* Jump Bar ---------------------------------------------------------------- */
+/* Pfadzeile --------------------------------------------------------------- */
 .jumpbar {
   display: flex;
   align-items: center;
   gap: 6px;
-  height: 28px;
+  height: 30px;
   padding: 0 16px;
   font-size: 12px;
   color: var(--dim);
@@ -349,7 +602,8 @@ button {
 .jumpbar .branch .repo {
   padding: 1px 6px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--hover);
+  border: 1px solid var(--line);
   color: var(--text);
   margin-right: 2px;
 }
@@ -357,22 +611,38 @@ button {
   font-variant-numeric: tabular-nums;
   color: var(--faint);
 }
-.plus {
-  color: rgb(var(--add));
-}
-.minus {
-  color: rgb(var(--del));
-}
 
-/* Editor ------------------------------------------------------------------ */
-.editor {
+/* Inhaltsbereich ---------------------------------------------------------- */
+.view {
   flex: 1;
   overflow: auto;
+}
+.view-editor .view {
   font-family: var(--mono);
   font-size: var(--code-size);
   line-height: var(--code-lh);
   padding: 8px 0 40vh;
 }
+.view-cards .view {
+  padding: 18px 22px 60px;
+}
+.waiting {
+  height: 100%;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  color: var(--faint);
+  font-family: var(--sans);
+  font-size: 14px;
+  gap: 4px;
+}
+.waiting b {
+  color: var(--dim);
+  font-weight: 500;
+  font-size: 16px;
+}
+
+/* Editor-Ansicht: ganze Datei, Änderungen im Rand */
 .row {
   display: flex;
   min-height: calc(var(--code-size) * var(--code-lh));
@@ -393,7 +663,6 @@ button {
   line-height: calc(var(--code-size) * var(--code-lh));
 }
 .gut::after {
-  /* Änderungsbalken wie in Xcode */
   content: '';
   position: absolute;
   right: 4px;
@@ -402,11 +671,15 @@ button {
   width: 3px;
   border-radius: 2px;
 }
-.row.add .gut::after {
-  background: rgb(var(--add));
+.row.add {
+  --tone: var(--add);
 }
+.row.mod {
+  --tone: var(--mod);
+}
+.row.add .gut::after,
 .row.mod .gut::after {
-  background: rgb(var(--mod));
+  background: rgb(var(--tone));
 }
 .code {
   flex: 1;
@@ -417,20 +690,12 @@ button {
 }
 .row.add .code,
 .row.mod .code {
-  background: rgba(var(--tone), 0.07);
-}
-.row.add {
-  --tone: var(--add);
-}
-.row.mod {
-  --tone: var(--mod);
+  background: rgba(var(--tone), var(--tint));
 }
 .row.add .gut,
 .row.mod .gut {
   color: var(--dim);
 }
-
-/* frisch geändert: aufleuchten und abklingen */
 .row.fresh .code {
   animation: fresh 2.4s ease-out backwards;
 }
@@ -444,16 +709,14 @@ button {
     background: rgba(var(--tone), 0.26);
   }
 }
-
-/* gelöschte Zeilen: kurz sichtbar, dann eingeklappt zu einem Keil */
 .row.ghost {
   overflow: hidden;
   max-height: calc(var(--code-size) * var(--code-lh) * 6);
   transition: max-height 0.5s ease, opacity 0.5s ease, min-height 0.5s ease;
 }
 .row.ghost .code {
-  background: rgba(var(--del), 0.1);
-  color: #b89d9d;
+  background: rgba(var(--del), var(--tint));
+  color: var(--ghost-text);
   text-decoration: line-through;
   text-decoration-color: rgba(var(--del), 0.5);
 }
@@ -465,6 +728,9 @@ button {
   min-height: 0;
   opacity: 0;
 }
+.row.delmark .gut {
+  cursor: help;
+}
 .row.delmark .gut::before {
   content: '';
   position: absolute;
@@ -472,12 +738,7 @@ button {
   top: -4px;
   border: 4px solid transparent;
   border-left: 6px solid rgb(var(--del));
-  cursor: help;
 }
-.row.delmark .gut {
-  cursor: help;
-}
-
 .hunkgap {
   padding: 4px 0 4px 78px;
   color: var(--faint);
@@ -490,50 +751,157 @@ button {
   font-family: var(--sans);
   font-size: 12px;
 }
-.waiting {
-  height: 100%;
-  display: grid;
-  place-content: center;
+
+/* Karten-Ansicht: Änderungen als Diff-Blöcke */
+.change {
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--panel);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.change.old {
+  opacity: 0.72;
+}
+.change .meta {
+  display: flex;
+  gap: 12px;
+  padding: 7px 14px;
+  font-size: 12px;
+  color: var(--dim);
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+}
+.change .meta .first {
+  color: var(--text);
+}
+table.code {
+  border-collapse: collapse;
+  width: 100%;
+  font-family: var(--mono);
+  font-size: var(--code-size);
+  line-height: 1.6;
+}
+table.code td {
+  padding: 0;
+  vertical-align: top;
+}
+td.ln {
+  width: 1%;
+  min-width: 3.2em;
+  padding: 0 10px !important;
+  text-align: right;
+  color: var(--faint);
+  user-select: none;
+  font-size: 0.82em;
+  font-variant-numeric: tabular-nums;
+}
+td.sign {
+  width: 1.6em;
   text-align: center;
+  user-select: none;
+  color: var(--faint);
+}
+td.src {
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding-right: 16px !important;
+  tab-size: 4;
+}
+tr.add {
+  background: rgba(var(--add), var(--tint));
+}
+tr.add td.sign {
+  color: rgb(var(--add));
+  box-shadow: inset 3px 0 0 rgba(var(--add), 0.6);
+}
+tr.del {
+  background: rgba(var(--del), var(--tint));
+}
+tr.del td.sign {
+  color: rgb(var(--del));
+  box-shadow: inset 3px 0 0 rgba(var(--del), 0.6);
+}
+tr.del td.src {
+  color: var(--ghost-text);
+}
+tr.gap td {
+  padding: 3px 14px !important;
   color: var(--faint);
   font-family: var(--sans);
-  font-size: 14px;
-  gap: 4px;
+  font-size: 12px;
+  background: var(--hover);
 }
-.waiting b {
+tr.note td.src {
+  color: var(--faint);
+  font-style: italic;
+}
+tr.in {
+  animation: rowin 0.45s ease-out backwards;
+}
+@keyframes rowin {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+}
+.more {
+  padding: 8px 14px;
   color: var(--dim);
-  font-weight: 500;
-  font-size: 16px;
+  font-size: 12px;
 }
 
-/* Syntax: gedämpfte Xcode-Farben */
+/* Syntax */
 .k {
-  color: #d98ab4;
+  color: var(--sx-k);
   font-weight: 500;
 }
 .s {
-  color: #e39a85;
+  color: var(--sx-s);
 }
 .n {
-  color: #d4c27a;
+  color: var(--sx-n);
 }
 .c {
-  color: #6f7c88;
+  color: var(--sx-c);
 }
 .f {
-  color: #82c4b2;
+  color: var(--sx-f);
 }
 .t {
-  color: #8ccde3;
+  color: var(--sx-t);
 }
 .p {
-  color: #a3a3ab;
+  color: var(--sx-p);
 }
 .tag {
-  color: #8ccde3;
+  color: var(--sx-t);
 }
 .attr {
-  color: #d4b07a;
+  color: var(--sx-attr);
+}
+
+/* Hinweisleiste */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  z-index: 30;
+  transform: translate(-50%, 20px);
+  opacity: 0;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: var(--popover);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  font-size: 13px;
+  pointer-events: none;
+  transition: opacity 0.3s, transform 0.3s;
+}
+.toast.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
 }
 
 /* Pixel-Junior ------------------------------------------------------------ */
@@ -552,7 +920,6 @@ button {
   left: 50%;
   bottom: 16px;
   transform: translateX(-50%);
-  image-rendering: pixelated;
 }
 .buddy .figure.jump {
   animation: jump 0.5s cubic-bezier(0.3, 1.6, 0.5, 1);
@@ -569,21 +936,21 @@ button {
   bottom: 14px;
   height: 2px;
   border-radius: 2px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--line);
 }
-/* Sprechblase im Pixel-Stil: weiß, eckige Stufen statt Rundung */
+/* Sprechblase im Pixel-Stil: eckige Stufen statt Rundung */
 .bubble {
-  --b: #f3f0e8;
   position: absolute;
   left: 50%;
   bottom: 118px;
   max-width: 220px;
   width: max-content;
   padding: 8px 12px;
-  background: var(--b);
-  color: #222226;
+  background: var(--bubble-bg);
+  color: var(--bubble-fg);
   font: 400 16px/1.25 'Pixelify Sans', var(--mono);
-  box-shadow: 0 -4px 0 0 var(--b), 0 4px 0 0 var(--b), -4px 0 0 0 var(--b), 4px 0 0 0 var(--b);
+  box-shadow: 0 -4px 0 0 var(--bubble-bg), 0 4px 0 0 var(--bubble-bg), -4px 0 0 0 var(--bubble-bg),
+    4px 0 0 0 var(--bubble-bg);
   transform: translate(-50%, 6px);
   opacity: 0;
   pointer-events: none;
@@ -594,7 +961,7 @@ button {
 .bubble::after {
   content: '';
   position: absolute;
-  background: var(--b);
+  background: var(--bubble-bg);
 }
 .bubble::before {
   width: 12px;
@@ -688,7 +1055,7 @@ button {
   height: 10px;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--thumb);
   border-radius: 10px;
   border: 2px solid transparent;
   background-clip: padding-box;

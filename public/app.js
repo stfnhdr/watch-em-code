@@ -1,24 +1,92 @@
 'use strict'
 // Reine Ansicht: zeigt die Dateien so, wie der Agent sie gerade verändert.
-// Bearbeiten ist bewusst nicht möglich.
+// Bearbeiten ist bewusst nicht möglich. Zwei Ansichten mit gleichem Funktionsumfang:
+//   Editor – Ordnerbaum + ganze Datei, Änderungen im Rand (Xcode-artig)
+//   Karten – Dateikarten + Diff-Blöcke aller Änderungen einer Datei
 
 const BUSY_MS = 4000 // so lange gilt eine Session als „gerade in Arbeit“
 const GHOST_MS = 2600 // gelöschte Zeilen bleiben so lange sichtbar
-const STAGGER_MS = 22
-const STAGGER_MAX = 40
+const STAGGER_MS = 20
+const STAGGER_MAX = 50
 const MAX_ROWS = 20000
+const MAX_DIFF_LINES = 1500
 
 const $ = id => document.getElementById(id)
 const els = {
   sessions: $('sessions'),
-  tree: $('tree'),
+  list: $('list'),
   jumpbar: $('jumpbar'),
-  editor: $('editor'),
+  view: $('view'),
   live: $('live'),
   liveLabel: $('live-label'),
-  buddyToggle: $('buddy-toggle'),
+  settingsBtn: $('settings-btn'),
+  settings: $('settings'),
+  toast: $('toast'),
+  buddy: $('buddy'),
 }
 const esc = Highlight.esc
+
+// ---------------------------------------------------------------------------
+// Einstellungen (bleiben im Browser gespeichert)
+
+const DEFAULTS = { view: 'editor', theme: 'system', buddy: true }
+const settings = { ...DEFAULTS }
+try {
+  Object.assign(settings, JSON.parse(localStorage.getItem('whc.settings') || '{}'))
+  if (localStorage.getItem('whc.buddy') === 'off') settings.buddy = false
+} catch {}
+
+function saveSettings() {
+  try {
+    localStorage.setItem('whc.settings', JSON.stringify(settings))
+  } catch {}
+}
+
+const darkQuery = matchMedia('(prefers-color-scheme: dark)')
+function applyTheme() {
+  const t = settings.theme === 'system' ? (darkQuery.matches ? 'dark' : 'light') : settings.theme
+  document.documentElement.dataset.theme = t
+}
+darkQuery.addEventListener('change', applyTheme)
+
+function setSetting(key, value) {
+  if (settings[key] === value) return
+  settings[key] = value
+  saveSettings()
+  applySettings(key)
+}
+
+function applySettings(changed) {
+  applyTheme()
+  document.body.classList.toggle('view-editor', settings.view === 'editor')
+  document.body.classList.toggle('view-cards', settings.view === 'cards')
+  els.buddy.classList.toggle('hidden', !settings.buddy)
+  for (const b of els.settings.querySelectorAll('[data-key]')) {
+    b.classList.toggle('on', String(settings[b.dataset.key]) === b.dataset.value)
+  }
+  if (!changed || changed === 'view') {
+    els.list.innerHTML = ''
+    renderAll()
+  }
+}
+
+els.settings.addEventListener('click', e => {
+  const b = e.target.closest('[data-key]')
+  if (!b) return
+  const v = b.dataset.key === 'buddy' ? b.dataset.value === 'true' : b.dataset.value
+  setSetting(b.dataset.key, v)
+})
+function toggleSettings(open = els.settings.hidden) {
+  els.settings.hidden = !open
+  els.settingsBtn.classList.toggle('open', open)
+}
+els.settingsBtn.addEventListener('click', e => {
+  e.stopPropagation()
+  toggleSettings()
+})
+document.addEventListener('click', e => {
+  if (!els.settings.hidden && !e.target.closest('.settings-wrap')) toggleSettings(false)
+})
 
 // ---------------------------------------------------------------------------
 // Zustand
@@ -36,7 +104,7 @@ function newSession(info) {
   return { info, files: new Map(), last: null }
 }
 
-/** Datei: { filePath, rel, kind, added, removed, changes[], content, last } */
+/** Datei: { filePath, rel, kind, added, removed, changes[], content, last, repo } */
 function addChange(s, c) {
   let f = s.files.get(c.filePath)
   if (!f) {
@@ -49,12 +117,16 @@ function addChange(s, c) {
   f.last = Math.max(f.last, c.ts)
   f.rel = c.rel
   if (c.repo !== undefined) f.repo = c.repo
-  f.content = c.after // null, wenn unbekannt: dann Diff-Ansicht
+  f.content = c.after // null, wenn unbekannt: dann nur die geänderten Stellen
   if (!s.last || c.ts >= s.last.ts) s.last = c
   return f
 }
 
 const cur = () => sessions.get(sessionId)
+const curFile = () => {
+  const s = cur()
+  return s && selected ? s.files.get(selected) : null
+}
 
 function label(info) {
   return info.title || info.project || info.id.slice(0, 8)
@@ -89,6 +161,8 @@ function ago(ts) {
   return new Date(ts).toLocaleDateString('de-DE')
 }
 
+const kindWord = (f, c) => (c.kind === 'create' && f.changes[0] === c ? 'angelegt' : 'geändert')
+
 const ICON_COLORS = {
   js: '#d6b35a', mjs: '#d6b35a', cjs: '#d6b35a', jsx: '#d6b35a',
   ts: '#6aa5d8', tsx: '#6aa5d8', mts: '#6aa5d8',
@@ -101,14 +175,14 @@ function fileIcon(name) {
   const ext = name.includes('.') ? name.split('.').pop().toLowerCase() : ''
   const c = ICON_COLORS[ext] || '#8e8e96'
   return `<svg class="icon" width="13" height="15" viewBox="0 0 13 15">
-    <path d="M2 .5h6l4.5 4.5v8a1.5 1.5 0 0 1-1.5 1.5H2A1.5 1.5 0 0 1 .5 13V2A1.5 1.5 0 0 1 2 .5z" fill="${c}" fill-opacity=".16" stroke="${c}" stroke-opacity=".75"/>
-    <path d="M8 .8V5h4.2" fill="none" stroke="${c}" stroke-opacity=".75"/></svg>`
+    <path d="M2 .5h6l4.5 4.5v8a1.5 1.5 0 0 1-1.5 1.5H2A1.5 1.5 0 0 1 .5 13V2A1.5 1.5 0 0 1 2 .5z" fill="${c}" fill-opacity=".16" stroke="${c}" stroke-opacity=".8"/>
+    <path d="M8 .8V5h4.2" fill="none" stroke="${c}" stroke-opacity=".8"/></svg>`
 }
 const folderIcon = `<svg class="icon" width="15" height="12" viewBox="0 0 15 12">
-  <path d="M1.5.5h4l1.5 1.5h6.5a1 1 0 0 1 1 1v7.5a1 1 0 0 1-1 1h-12a1 1 0 0 1-1-1V1.5a1 1 0 0 1 1-1z" fill="#7a9cc6" fill-opacity=".35" stroke="#7a9cc6" stroke-opacity=".6"/></svg>`
+  <path d="M1.5.5h4l1.5 1.5h6.5a1 1 0 0 1 1 1v7.5a1 1 0 0 1-1 1h-12a1 1 0 0 1-1-1V1.5a1 1 0 0 1 1-1z" fill="#7a9cc6" fill-opacity=".35" stroke="#7a9cc6" stroke-opacity=".7"/></svg>`
 
 // ---------------------------------------------------------------------------
-// Titelleiste: Sessions
+// Titelleiste: Session-Tabs und Live
 
 function renderSessions(pingId) {
   const now = Date.now()
@@ -123,12 +197,13 @@ function renderSessions(pingId) {
         s.info.id === pingId ? 'ping' : '',
       ].join(' ')
       const r = s.info.repo && repos.get(s.info.repo)
-      const title = [s.info.cwd, r && r.branch ? `Branch: ${r.branch}` : '', `${s.files.size} Dateien geändert`].filter(Boolean).join('\n')
-      return `<button class="${cls}" data-id="${s.info.id}" title="${esc(title)}"><span class="dot"></span><span class="label">${esc(label(s.info))}</span>${s.info.title && s.info.project ? `<span class="proj">${esc(s.info.project)}</span>` : ''}</button>`
+      const title = [s.info.cwd, r && r.branch ? `Branch: ${r.branch}` : '', `${s.files.size} Dateien geändert`]
+        .filter(Boolean)
+        .join('\n')
+      const proj = s.info.title && s.info.project ? `<span class="proj">${esc(s.info.project)}</span>` : ''
+      return `<button class="${cls}" data-id="${s.info.id}" title="${esc(title)}"><span class="dot"></span><span class="label">${esc(label(s.info))}</span>${proj}</button>`
     })
     .join('')
-  // Bei nur einer Session reicht der Name, ohne Auswahl-Optik.
-  els.sessions.style.opacity = list.length ? 1 : 0
 }
 
 els.sessions.addEventListener('click', e => {
@@ -137,6 +212,7 @@ els.sessions.addEventListener('click', e => {
   sessionId = b.dataset.id
   follow = true
   selected = cur()?.last?.filePath ?? null
+  els.list.innerHTML = ''
   renderAll()
 })
 
@@ -147,7 +223,18 @@ function renderLive() {
 }
 
 // ---------------------------------------------------------------------------
-// Navigator: Ordnerbaum
+// Navigator links: Ordnerbaum (Editor) oder Karten
+
+function renderList(flashPath) {
+  const s = cur()
+  if (!s || s.files.size === 0) {
+    els.list.innerHTML = `<div class="empty-list">Noch keine Änderungen in dieser Session.</div>`
+    return
+  }
+  els.list.querySelector('.empty-list')?.remove()
+  if (settings.view === 'cards') renderCards(s, flashPath)
+  else renderTree(s, flashPath)
+}
 
 function buildTree(files) {
   const root = { dirs: new Map(), files: [] }
@@ -163,12 +250,7 @@ function buildTree(files) {
   return root
 }
 
-function renderTree(flashPath) {
-  const s = cur()
-  if (!s || s.files.size === 0) {
-    els.tree.innerHTML = `<div class="empty-tree">Noch keine Änderungen in dieser Session.</div>`
-    return
-  }
+function renderTree(s, flashPath) {
   const rows = []
   const walk = (node, depth) => {
     const dirs = [...node.dirs.entries()].sort((a, b) => a[0].localeCompare(b[0]))
@@ -197,32 +279,75 @@ function renderTree(flashPath) {
     }
   }
   walk(buildTree(s.files.values()), 0)
-  els.tree.innerHTML = rows.join('')
+  els.list.innerHTML = rows.join('')
 }
 
-els.tree.addEventListener('click', e => {
-  const b = e.target.closest('.node.file')
+function cardHtml(f, width) {
+  const { dir, name } = split(f.rel)
+  return `
+    <div class="row1">
+      <span class="name">${esc(name)}</span>
+      <span class="badge">${f.kind === 'create' ? 'neu' : 'geändert'}</span>
+    </div>
+    <div class="dir"><span dir="ltr">${dir ? esc(dir + '/') : '&nbsp;'}</span></div>
+    <div class="stats">
+      <span class="plus">+${f.added}</span><span class="minus">−${f.removed}</span>
+      <span class="bar"><span class="fill" style="width:${width}%">
+        <span class="a" style="flex-grow:${f.added}"></span><span class="d" style="flex-grow:${f.removed}"></span>
+      </span></span>
+      <span class="when" data-ts="${f.last}">${ago(f.last)}</span>
+    </div>`
+}
+
+/** Karten bleiben als Elemente erhalten, damit Balken wachsen und Karten aufleuchten. */
+function renderCards(s, flashPath) {
+  for (const n of els.list.querySelectorAll(':scope > :not(.card)')) n.remove()
+  const list = [...s.files.values()].sort((a, b) => b.last - a.last)
+  const biggest = Math.max(1, ...list.map(f => f.added + f.removed))
+  const existing = new Map([...els.list.querySelectorAll('.card')].map(el => [el.dataset.path, el]))
+
+  list.forEach((f, i) => {
+    const total = f.added + f.removed
+    const width = total ? Math.max(8, Math.round((total / biggest) * 100)) : 0
+    let el = existing.get(f.filePath)
+    if (!el) {
+      el = document.createElement('button')
+      el.className = 'card'
+      el.dataset.path = f.filePath
+      el.title = f.rel
+      el.innerHTML = cardHtml({ ...f, added: 0, removed: 0 }, 0) // Balken wächst von 0
+    }
+    existing.delete(f.filePath)
+    el.classList.toggle('create', f.kind === 'create')
+    el.classList.toggle('active', f.filePath === selected)
+    if (els.list.children[i] !== el) els.list.insertBefore(el, els.list.children[i] || null)
+    requestAnimationFrame(() => {
+      const fill = el.querySelector('.fill')
+      fill.style.width = width + '%'
+      fill.querySelector('.a').style.flexGrow = f.added
+      fill.querySelector('.d').style.flexGrow = f.removed
+      el.querySelector('.plus').textContent = `+${f.added}`
+      el.querySelector('.minus').textContent = `−${f.removed}`
+      const when = el.querySelector('.when')
+      when.dataset.ts = f.last
+      when.textContent = ago(f.last)
+    })
+    if (f.filePath === flashPath) {
+      el.classList.remove('flash')
+      void el.offsetWidth // Animation neu starten
+      el.classList.add('flash')
+    }
+  })
+  for (const el of existing.values()) el.remove()
+}
+
+els.list.addEventListener('click', e => {
+  const b = e.target.closest('.node.file, .card')
   if (b) pick(b.dataset.path)
 })
 
 // ---------------------------------------------------------------------------
-// Jump Bar
-
-function renderJumpbar() {
-  const s = cur()
-  const f = s && selected && s.files.get(selected)
-  if (!f) {
-    els.jumpbar.innerHTML = s ? `<span>${esc(label(s.info))}</span>` : ''
-    return
-  }
-  const parts = [label(s.info), ...f.rel.split('/')]
-  const last = f.changes[f.changes.length - 1]
-  els.jumpbar.innerHTML =
-    parts.map((p, i) => `<span class="${i === parts.length - 1 ? 'cur' : ''}">${esc(p)}</span>`).join('<span class="sep">›</span>') +
-    `<span class="spacer"></span>${branchHtml(s, f)}<span class="meta">${f.changes.length === 1 ? (f.kind === 'create' ? 'angelegt' : '1 Änderung') : `${f.changes.length} Änderungen`} · ` +
-    `<span class="when" data-ts="${last.ts}">${ago(last.ts)}</span> · ` +
-    `<span class="plus">+${last.added}</span> <span class="minus">−${last.removed}</span></span>`
-}
+// Pfadzeile mit Branch
 
 const BRANCH_ICON = `<svg width="11" height="13" viewBox="0 0 11 13" fill="none" stroke="currentColor" stroke-width="1.3">
   <circle cx="3" cy="2.5" r="1.6"/><circle cx="3" cy="10.5" r="1.6"/><circle cx="8.5" cy="4.5" r="1.6"/>
@@ -236,8 +361,36 @@ function branchHtml(s, f) {
   return `<span class="branch" title="${esc(r.root)}">${sub}${BRANCH_ICON}<span>${esc(r.branch)}</span></span>`
 }
 
+function renderJumpbar() {
+  const s = cur()
+  const f = curFile()
+  if (!f) {
+    els.jumpbar.innerHTML = s ? `<span>${esc(label(s.info))}</span>` : ''
+    return
+  }
+  const parts = [label(s.info), ...f.rel.split('/')]
+  const last = f.changes[f.changes.length - 1]
+  els.jumpbar.innerHTML =
+    parts.map((p, i) => `<span class="${i === parts.length - 1 ? 'cur' : ''}">${esc(p)}</span>`).join('<span class="sep">›</span>') +
+    `<span class="spacer"></span>${branchHtml(s, f)}<span class="meta">${
+      f.changes.length === 1 ? (f.kind === 'create' ? 'angelegt' : '1 Änderung') : `${f.changes.length} Änderungen`
+    } · ` +
+    `<span class="when" data-ts="${last.ts}">${ago(last.ts)}</span> · ` +
+    `<span class="plus">+${last.added}</span> <span class="minus">−${last.removed}</span></span>`
+}
+
 // ---------------------------------------------------------------------------
-// Code-Ansicht
+// Inhalt: ganze Datei (Editor) oder Diff-Blöcke (Karten)
+
+function renderMain(animate, changeId) {
+  const f = curFile()
+  if (!f) {
+    els.view.innerHTML = `<div class="waiting"><b>Warte auf Code …</b><span>Sobald Claude eine Datei anlegt oder ändert, erscheint sie hier.</span></div>`
+    return
+  }
+  if (settings.view === 'cards') renderDiff(f, animate ? changeId : null)
+  else renderEditor(f, animate)
+}
 
 /** Markierungen für den neuen Dateiinhalt aus den Hunks der letzten Änderung. */
 function markers(c) {
@@ -274,17 +427,18 @@ function markers(c) {
   return { marks, ghosts, first }
 }
 
-function rowHtml(num, cls, code, extra = '') {
-  return `<div class="row ${cls}"${extra}><span class="gut">${num}</span><span class="code">${code || ' '}</span></div>`
+function rowHtml(num, cls, code, delay) {
+  const style = delay !== undefined ? ` style="--d:${delay}"` : ''
+  return `<div class="row ${cls}"${style}><span class="gut">${num}</span><span class="code">${code || ' '}</span></div>`
 }
 
-function renderEditor(animate) {
-  const s = cur()
-  const f = s && selected && s.files.get(selected)
-  if (!f) {
-    els.editor.innerHTML = `<div class="waiting"><b>Warte auf Code …</b><span>Sobald Claude eine Datei anlegt oder ändert, erscheint sie hier.</span></div>`
-    return
+function applyStagger() {
+  for (const r of els.view.querySelectorAll('.row[style*="--d"]')) {
+    r.querySelector('.code').style.animationDelay = `${Number(r.style.getPropertyValue('--d')) * STAGGER_MS}ms`
   }
+}
+
+function renderEditor(f, animate) {
   const c = f.changes[f.changes.length - 1]
   const lang = Highlight.langOf(f.filePath)
   const state = { block: null }
@@ -299,19 +453,16 @@ function renderEditor(animate) {
       let n = h.newStart
       for (const raw of h.lines) {
         const sign = raw[0]
-        const text = raw.slice(1)
-        const delay = animate && count < STAGGER_MAX ? ` style="--d:${count}"` : ''
-        if (sign === '-') out.push(rowHtml('', 'ghost', Highlight.line(text, lang, state)))
-        else {
-          const cls = sign === '+' ? `add${animate ? ' fresh' : ''}` : ''
-          out.push(rowHtml(n++, cls, Highlight.line(text, lang, state), delay))
-        }
+        const code = Highlight.line(raw.slice(1), lang, state)
+        if (sign === '-') out.push(rowHtml('', 'ghost', code))
+        else if (sign === '+') out.push(rowHtml(n++, animate ? 'add fresh' : 'add', code, animate && count < STAGGER_MAX ? count : undefined))
+        else out.push(rowHtml(n++, '', code))
         count++
       }
     })
-    els.editor.innerHTML = out.join('')
+    els.view.innerHTML = out.join('')
     applyStagger()
-    if (animate) els.editor.scrollTo({ top: 0, behavior: 'smooth' })
+    if (animate) els.view.scrollTo({ top: 0, behavior: 'smooth' })
     return
   }
 
@@ -324,26 +475,23 @@ function renderEditor(animate) {
     const del = ghosts.get(i)
     if (del) {
       const dstate = { block: null }
-      const title = esc(del.join('\n'))
       if (animate) for (const d of del) out.push(rowHtml('', 'ghost', Highlight.line(d, lang, dstate)))
-      // Keil am Folgezeilen-Rand merken
-      out.push(`<i data-delmark="${title}"></i>`)
+      out.push(`<i data-delmark="${esc(del.join('\n'))}"></i>`) // Keil an der Folgezeile
     }
     if (i > total) break
     const mark = marks.get(i)
     let cls = mark || ''
-    let extra = ''
+    let delay
     if (mark && animate) {
       cls += ' fresh'
-      if (staggered < STAGGER_MAX) extra = ` style="--d:${staggered++}"`
+      if (staggered < STAGGER_MAX) delay = staggered++
     }
-    out.push(rowHtml(i, cls, Highlight.line(lines[i - 1], lang, state), extra))
+    out.push(rowHtml(i, cls, Highlight.line(lines[i - 1], lang, state), delay))
   }
   if (lines.length > MAX_ROWS) out.push(`<div class="notice">… ${lines.length - MAX_ROWS} weitere Zeilen</div>`)
-  els.editor.innerHTML = out.join('')
+  els.view.innerHTML = out.join('')
 
-  // Platzhalter für gelöschte Stellen in Keil-Markierungen umwandeln
-  for (const m of els.editor.querySelectorAll('i[data-delmark]')) {
+  for (const m of els.view.querySelectorAll('i[data-delmark]')) {
     const next = m.nextElementSibling
     const target = next && next.classList.contains('row') ? next : m.previousElementSibling
     if (target) {
@@ -355,24 +503,92 @@ function renderEditor(animate) {
   applyStagger()
 
   if (animate) {
-    const ghostsEls = els.editor.querySelectorAll('.row.ghost')
-    if (ghostsEls.length) setTimeout(() => ghostsEls.forEach(g => g.classList.add('gone')), GHOST_MS)
+    const ghostEls = els.view.querySelectorAll('.row.ghost')
+    if (ghostEls.length) setTimeout(() => ghostEls.forEach(g => g.classList.add('gone')), GHOST_MS)
   }
-  // Zur geänderten Stelle scrollen
   if (first !== null) {
-    const row = els.editor.querySelectorAll('.row:not(.ghost)')[Math.max(0, first - 1)]
-    const target = (animate && els.editor.querySelector('.row.ghost')) || row
+    const row = els.view.querySelectorAll('.row:not(.ghost)')[Math.max(0, first - 1)]
+    const target = (animate && els.view.querySelector('.row.ghost')) || row
     if (target) {
-      const top = target.offsetTop - els.editor.clientHeight * 0.3
-      els.editor.scrollTo({ top: Math.max(0, top), behavior: animate ? 'smooth' : 'auto' })
+      const top = target.offsetTop - els.view.clientHeight * 0.3
+      els.view.scrollTo({ top: Math.max(0, top), behavior: animate ? 'smooth' : 'auto' })
     }
   }
 }
 
-function applyStagger() {
-  for (const r of els.editor.querySelectorAll('.row[style*="--d"]')) {
-    r.querySelector('.code').style.animationDelay = `${Number(r.style.getPropertyValue('--d')) * STAGGER_MS}ms`
-  }
+function changeHtml(c, f, isNewest, animate) {
+  const lang = Highlight.langOf(c.filePath)
+  const state = { block: null }
+  const rows = []
+  let count = 0
+  let hidden = 0
+
+  c.hunks.forEach((h, hi) => {
+    if (hi > 0 || (h.newStart > 1 && c.kind !== 'create')) {
+      rows.push(`<tr class="gap"><td colspan="4">⋯ ab Zeile ${h.newStart}</td></tr>`)
+    }
+    let o = h.oldStart
+    let n = h.newStart
+    for (const raw of h.lines) {
+      if (count >= MAX_DIFF_LINES) {
+        hidden++
+        continue
+      }
+      const sign = raw[0]
+      let cls = ''
+      let lo = ''
+      let ln = ''
+      if (sign === '+') {
+        cls = 'add'
+        ln = n++
+      } else if (sign === '-') {
+        cls = 'del'
+        lo = o++
+      } else if (sign === '\\') {
+        cls = 'note'
+      } else {
+        lo = o++
+        ln = n++
+      }
+      const delay = animate && count < STAGGER_MAX ? ` style="animation-delay:${count * STAGGER_MS}ms"` : ''
+      const code = cls === 'note' ? esc(raw) : Highlight.line(raw.slice(1), lang, state)
+      rows.push(
+        `<tr class="${cls}${animate ? ' in' : ''}"${delay}>` +
+          `<td class="ln">${lo}</td><td class="ln">${ln}</td>` +
+          `<td class="sign">${sign === '+' ? '+' : sign === '-' ? '−' : ''}</td>` +
+          `<td class="src">${code || ' '}</td></tr>`,
+      )
+      count++
+    }
+  })
+
+  return `
+    <div class="change${isNewest ? '' : ' old'}">
+      <div class="meta">
+        <span class="first">${kindWord(f, c)}</span><span>${new Date(c.ts).toLocaleTimeString('de-DE')}</span>
+        <span class="when" data-ts="${c.ts}">${ago(c.ts)}</span>
+        <span><span class="plus">+${c.added}</span> <span class="minus">−${c.removed}</span></span>
+      </div>
+      <table class="code">${rows.join('')}</table>
+      ${hidden ? `<div class="more">… ${hidden} weitere Zeilen ausgeblendet</div>` : ''}
+    </div>`
+}
+
+function renderDiff(f, animateId) {
+  const newestFirst = [...f.changes].reverse()
+  els.view.innerHTML = newestFirst.map((c, i) => changeHtml(c, f, i === 0, c.id === animateId)).join('')
+  if (animateId) els.view.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+// ---------------------------------------------------------------------------
+// Hinweisleiste
+
+let toastTimer
+function toast(html) {
+  els.toast.innerHTML = html
+  els.toast.classList.add('show')
+  clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => els.toast.classList.remove('show'), 2600)
 }
 
 // ---------------------------------------------------------------------------
@@ -380,9 +596,9 @@ function applyStagger() {
 
 function renderAll(opts = {}) {
   renderSessions(opts.ping)
-  renderTree(opts.flash)
+  renderList(opts.flash)
   renderJumpbar()
-  renderEditor(opts.animate)
+  renderMain(opts.animate, opts.changeId)
   renderLive()
 }
 
@@ -399,35 +615,27 @@ function goLive() {
 }
 
 els.live.addEventListener('click', goLive)
+
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') goLive()
-  if (e.key === 'd' && !e.metaKey && !e.ctrlKey && buddyOn) buddy.demo()
+  if (e.metaKey || e.ctrlKey || e.altKey) return
+  if (e.key === 'Escape') {
+    if (!els.settings.hidden) toggleSettings(false)
+    else goLive()
+  } else if (e.key === 'v') setSetting('view', settings.view === 'editor' ? 'cards' : 'editor')
+  else if (e.key === 't') {
+    const order = ['light', 'dark', 'system']
+    setSetting('theme', order[(order.indexOf(settings.theme) + 1) % order.length])
+  } else if (e.key === 'd' && settings.buddy) buddy.demo()
 })
 
-// Zeiten und „in Arbeit“-Punkte regelmäßig auffrischen
+// Zeiten und Session-Punkte regelmäßig auffrischen
 setInterval(() => {
   for (const el of document.querySelectorAll('.when[data-ts]')) el.textContent = ago(Number(el.dataset.ts))
   renderSessions()
 }, 2000)
 
-// Pixel-Junior
-const buddy = Buddy.create($('buddy'))
-let buddyOn = true
-try {
-  buddyOn = localStorage.getItem('whc.buddy') !== 'off'
-} catch {}
-function applyBuddy() {
-  $('buddy').classList.toggle('hidden', !buddyOn)
-  els.buddyToggle.classList.toggle('on', buddyOn)
-}
-els.buddyToggle.addEventListener('click', () => {
-  buddyOn = !buddyOn
-  try {
-    localStorage.setItem('whc.buddy', buddyOn ? 'on' : 'off')
-  } catch {}
-  applyBuddy()
-})
-applyBuddy()
+const buddy = Buddy.create(els.buddy)
+applySettings()
 
 // ---------------------------------------------------------------------------
 // Live-Verbindung
@@ -464,6 +672,7 @@ events.addEventListener('reset', e => {
     selected = s?.last?.filePath ?? null
   }
   connected = true
+  els.list.innerHTML = ''
   renderAll()
   buddy.wake(s && s.last ? s.last.ts : 0)
 })
@@ -492,17 +701,22 @@ events.addEventListener('change', e => {
   }
   const f = addChange(s, c)
 
-  // Ausgewählte Session ohne eigene Änderungen? Dann zur aktiven wechseln.
-  if (follow && (!cur() || cur().files.size === 0)) sessionId = sid
-
+  // Gewählte Session ohne eigene Änderungen? Dann zur aktiven wechseln.
+  if (follow && (!cur() || cur().files.size === 0)) {
+    sessionId = sid
+    els.list.innerHTML = ''
+  }
   if (sid !== sessionId) {
     renderSessions(sid) // nur der Punkt der anderen Session blinkt
     return
   }
   if (follow) selected = c.filePath
-  renderAll({
-    flash: c.filePath,
-    animate: selected === c.filePath,
-  })
+  renderAll({ flash: c.filePath, animate: selected === c.filePath, changeId: c.id })
+  if (selected !== c.filePath) {
+    toast(
+      `✎ ${esc(split(c.rel).name)} ${kindWord(f, c)} ` +
+        `<span class="plus">+${c.added}</span> <span class="minus">−${c.removed}</span>`,
+    )
+  }
   buddy.onChange(c, f, s)
 })

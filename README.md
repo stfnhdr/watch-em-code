@@ -18,23 +18,34 @@ Voraussetzung: Node.js 18 oder neuer. Keine `npm install` nötig.
 
 ## Bedienung
 
-Die Oberfläche ist an Xcode angelehnt und reine Ansicht – bearbeitet wird nichts.
+Reine Ansicht – bearbeitet wird nichts. Über das Regler-Symbol oben rechts
+(Einstellungen) lässt sich umschalten, alles bleibt im Browser gespeichert:
+
+- **Ansicht**: *Editor* (Xcode-artig: Ordnerbaum, ganze Datei, Änderungen im Rand)
+  oder *Karten* (Dateikarten mit Balken, Diff-Blöcke aller Änderungen einer Datei).
+  Beide haben denselben Funktionsumfang. Taste `v`.
+- **Farben**: Hell, Dunkel oder System. Taste `t`.
+- **Pixel-Junior**: an/aus.
 
 - **Titelleiste**: alle Sessions der letzten 30 Minuten. Grüner pulsierender Punkt =
   ändert gerade Code. Live folgt der gewählten Session; Änderungen in anderen
   Sessions lassen nur deren Punkt kurz aufblinken.
 - **Navigator** (links): Ordnerbaum der geänderten Dateien, **A** = neu, **M** = geändert,
   dazu `+`/`−`.
-- **Code**: die ganze Datei mit Zeilennummern. Die letzte Änderung ist im Rand markiert
+- **Code** (Editor-Ansicht): die ganze Datei mit Zeilennummern. Die letzte Änderung ist im Rand markiert
   (grün = neu, bernstein = geändert, roter Keil = gelöscht, Maus darüber zeigt den alten
   Text). Bei neuen Änderungen scrollt die Ansicht hin, gelöschte Zeilen erscheinen kurz
   durchgestrichen und klappen dann ein.
 - **Branch**: rechts in der Pfadzeile der Branch des Repos, in dem die Datei liegt.
   Bei Unter-Repos (nächstes `.git` oberhalb der Datei, auch Submodule/Worktrees)
   steht der Repo-Name davor. Gelesen wird direkt `.git/HEAD`, ohne `git`-Aufruf.
+- **Karten-Ansicht**: Karten leuchten bei Änderungen auf, der Balken wächst; in der
+  Mitte alle Änderungen der Datei als Diff, die neueste oben.
+- **Hinweisleiste**: Ändert sich eine andere als die angezeigte Datei, erscheint unten
+  kurz ein Hinweis.
 - **Live**: folgt automatisch der aktuellen Datei. Klick auf eine Datei hält fest,
   zurück mit „Live folgen“ oder `Esc`.
-- **Pixel-Junior** (unten links, Knopf oben rechts schaltet ihn ab): tippt, wenn Code
+- **Pixel-Junior** (unten links): tippt, wenn Code
   kommt, legt neue Dateien ab, radiert bei Löschungen, schläft nach 2 Minuten Ruhe ein
   und kommentiert ab und zu, was passiert. Taste `d` führt alle Reaktionen vor.
   Die Pixel-Schrift (Pixelify Sans, SIL Open Font License) liegt lokal in

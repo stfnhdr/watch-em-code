@@ -1,39 +1,67 @@
 <!doctype html>
-<html lang="de">
+<html lang="de" data-theme="dark">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Watch Him Code</title>
     <link rel="stylesheet" href="style.css" />
   </head>
-  <body>
+  <body class="view-editor">
     <header class="titlebar">
       <div class="app">Watch Him Code</div>
       <nav class="sessions" id="sessions"></nav>
       <div class="tools">
-        <button class="tool" id="buddy-toggle" title="Pixel-Junior ein/aus">
-          <svg viewBox="0 0 10 10" width="14" height="14" shape-rendering="crispEdges">
-            <rect x="2" y="1" width="6" height="2" fill="currentColor" />
-            <rect x="2" y="3" width="6" height="4" fill="currentColor" opacity=".55" />
-            <rect x="1" y="7" width="8" height="2" fill="currentColor" />
-          </svg>
-        </button>
         <button class="live" id="live" title="Der neuesten Änderung folgen (Esc)">
           <span class="dot"></span><span id="live-label">Live</span>
         </button>
+        <div class="settings-wrap">
+          <button class="tool" id="settings-btn" title="Einstellungen">
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4">
+              <path d="M2 4h7M13 4h1M2 8h2M8 8h6M2 12h8M14 12h0" stroke-linecap="round" />
+              <circle cx="11" cy="4" r="1.8" /><circle cx="6" cy="8" r="1.8" /><circle cx="12" cy="12" r="1.8" />
+            </svg>
+          </button>
+          <div class="settings" id="settings" hidden>
+            <div class="setting">
+              <span>Ansicht</span>
+              <div class="seg">
+                <button data-key="view" data-value="editor">Editor</button>
+                <button data-key="view" data-value="cards">Karten</button>
+              </div>
+            </div>
+            <div class="setting">
+              <span>Farben</span>
+              <div class="seg">
+                <button data-key="theme" data-value="light">Hell</button>
+                <button data-key="theme" data-value="dark">Dunkel</button>
+                <button data-key="theme" data-value="system">System</button>
+              </div>
+            </div>
+            <div class="setting">
+              <span>Pixel-Junior</span>
+              <div class="seg">
+                <button data-key="buddy" data-value="true">An</button>
+                <button data-key="buddy" data-value="false">Aus</button>
+              </div>
+            </div>
+            <div class="keys"><kbd>Esc</kbd> Live · <kbd>v</kbd> Ansicht · <kbd>t</kbd> Farben · <kbd>d</kbd> Demo</div>
+          </div>
+        </div>
       </div>
     </header>
 
     <main class="layout">
       <aside class="navigator">
-        <div class="tree" id="tree"></div>
+        <div class="list" id="list"></div>
         <div class="buddy" id="buddy"></div>
       </aside>
       <section class="editor-area">
         <div class="jumpbar" id="jumpbar"></div>
-        <div class="editor" id="editor"></div>
+        <div class="view" id="view"></div>
       </section>
     </main>
+
+    <div class="toast" id="toast"></div>
 
     <script src="highlight.js"></script>
     <script src="buddy.js"></script>
