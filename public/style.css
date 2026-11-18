@@ -131,20 +131,20 @@ button {
   display: flex;
   align-items: flex-end;
   gap: 16px;
-  height: 52px;
+  height: 56px;
   padding: 0 12px 0 18px;
   background: var(--title);
 }
 /* Pixel-Logo: dunkles Orange innen, kräftiger oranger Pixelrand (8 Richtungen) */
 .app {
-  --logo-fill: #6a2606;
+  --logo-fill: #3d1403;
   --logo-edge: #ff8f2e;
   align-self: center;
   margin-right: 6px;
   padding: 0 4px;
   color: var(--logo-fill);
-  --logo-drop: #2b0f02;
-  font: 400 22px/1 'Pixelify Sans', var(--mono);
+  --logo-drop: #1c0801;
+  font: 400 26px/1 'Pixelify Sans', var(--mono);
   text-transform: uppercase;
   letter-spacing: 2px;
   white-space: nowrap;
