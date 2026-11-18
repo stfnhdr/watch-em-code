@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Watch Him Code</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div class="brand"><span class="eye"></span>Watch Him Code</div>
+      <div class="project" id="project"></div>
+      <div class="spacer"></div>
+      <div class="totals" id="totals"></div>
+      <button class="live" id="live" title="Der neuesten Änderung folgen (Esc)">
+        <span class="dot"></span><span id="live-label">Live</span>
+      </button>
+    </header>
+
+    <main class="layout">
+      <aside class="files" id="files"></aside>
+      <section class="diff" id="diff"></section>
+    </main>
+
+    <div class="toast" id="toast"></div>
+
+    <script src="highlight.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
