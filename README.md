@@ -35,8 +35,8 @@ Die Oberfläche ist an Xcode angelehnt und reine Ansicht – bearbeitet wird nic
 - **Pixel-Junior** (unten links, Knopf oben rechts schaltet ihn ab): tippt, wenn Code
   kommt, legt neue Dateien ab, radiert bei Löschungen, schläft nach 2 Minuten Ruhe ein
   und kommentiert ab und zu, was passiert. Taste `d` führt alle Reaktionen vor.
-  Die Pixel-Schrift der Sprechblasen kommt von Google Fonts (Pixelify Sans);
-  ohne Internet wird eine normale Monospace-Schrift genommen.
+  Die Pixel-Schrift (Pixelify Sans, SIL Open Font License) liegt lokal in
+  `public/fonts/`, es wird nichts aus dem Internet geladen.
 
 ## Wie es funktioniert
 
