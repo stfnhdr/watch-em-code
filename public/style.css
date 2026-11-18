@@ -137,13 +137,13 @@ button {
 }
 /* Pixel-Logo: dunkles Orange innen, kräftiger oranger Pixelrand (8 Richtungen) */
 .app {
-  --logo-fill: #b8531c;
+  --logo-fill: #6a2606;
   --logo-edge: #ff8f2e;
   align-self: center;
   margin-right: 6px;
   padding: 0 4px;
   color: var(--logo-fill);
-  --logo-drop: #5a250b;
+  --logo-drop: #2b0f02;
   font: 400 22px/1 'Pixelify Sans', var(--mono);
   text-transform: uppercase;
   letter-spacing: 2px;
