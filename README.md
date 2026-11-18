@@ -29,6 +29,9 @@ Die Oberfläche ist an Xcode angelehnt und reine Ansicht – bearbeitet wird nic
   (grün = neu, bernstein = geändert, roter Keil = gelöscht, Maus darüber zeigt den alten
   Text). Bei neuen Änderungen scrollt die Ansicht hin, gelöschte Zeilen erscheinen kurz
   durchgestrichen und klappen dann ein.
+- **Branch**: rechts in der Pfadzeile der Branch des Repos, in dem die Datei liegt.
+  Bei Unter-Repos (nächstes `.git` oberhalb der Datei, auch Submodule/Worktrees)
+  steht der Repo-Name davor. Gelesen wird direkt `.git/HEAD`, ohne `git`-Aufruf.
 - **Live**: folgt automatisch der aktuellen Datei. Klick auf eine Datei hält fest,
   zurück mit „Live folgen“ oder `Esc`.
 - **Pixel-Junior** (unten links, Knopf oben rechts schaltet ihn ab): tippt, wenn Code

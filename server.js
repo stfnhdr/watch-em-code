@@ -171,6 +171,77 @@ function displayPath(file, cwd) {
 }
 
 // ---------------------------------------------------------------------------
+// Git: Branch je Repo, direkt aus .git/HEAD gelesen (kein git-Aufruf nötig).
+// Gesucht wird vom Ordner der Datei aufwärts das nächste .git – bei
+// Unter-Repos und Submodulen ist das automatisch das innerste.
+
+const repos = new Map() // Wurzelordner -> { root, name, headFile, branch }
+const dirRepo = new Map() // Ordner -> Wurzelordner | null (Cache)
+
+function readBranch(headFile) {
+  try {
+    const head = fs.readFileSync(headFile, 'utf8').trim()
+    const m = /^ref:\s*refs\/heads\/(.+)$/.exec(head)
+    return m ? m[1] : head.slice(0, 7) // ohne Branch: kurzer Commit
+  } catch {
+    return ''
+  }
+}
+
+const repoInfo = r => ({ root: r.root, name: r.name, branch: r.branch })
+
+function repoFor(dir) {
+  if (!dir) return null
+  if (dirRepo.has(dir)) return dirRepo.get(dir)
+  let root = null
+  for (let d = dir; ; d = path.dirname(d)) {
+    const g = path.join(d, '.git')
+    let st = null
+    try {
+      st = fs.statSync(g)
+    } catch {}
+    if (st) {
+      let gitdir = g
+      if (st.isFile()) {
+        // Submodul oder Worktree: .git ist eine Datei mit Verweis
+        try {
+          const m = /^gitdir:\s*(.+)$/m.exec(fs.readFileSync(g, 'utf8'))
+          gitdir = m ? path.resolve(d, m[1].trim()) : null
+        } catch {
+          gitdir = null
+        }
+      }
+      if (gitdir) {
+        root = d
+        if (!repos.has(d)) {
+          const headFile = path.join(gitdir, 'HEAD')
+          const r = { root: d, name: path.basename(d), headFile, branch: readBranch(headFile) }
+          repos.set(d, r)
+          broadcast(2, 'repo', repoInfo(r))
+        }
+      }
+      break
+    }
+    if (path.dirname(d) === d) break
+  }
+  dirRepo.set(dir, root)
+  return root
+}
+
+/** Branch-Wechsel erkennen; neue .git-Ordner gelegentlich neu suchen. */
+let gitTick = 0
+function checkRepos() {
+  for (const r of repos.values()) {
+    const branch = readBranch(r.headFile)
+    if (branch !== r.branch) {
+      r.branch = branch
+      broadcast(2, 'repo', repoInfo(r))
+    }
+  }
+  if (++gitTick % 15 === 0) dirRepo.clear()
+}
+
+// ---------------------------------------------------------------------------
 // Beobachtete Sessions
 
 let seq = 0
@@ -265,6 +336,7 @@ function readNew(s, file, sink) {
       const change = toChange(entry, ++seq)
       if (change) {
         fillAfter(s, change)
+        change.repo = repoFor(path.dirname(change.filePath))
         sink.push(change)
       }
     }
@@ -280,6 +352,7 @@ function sessionInfo(s) {
     project: s.cwd ? path.basename(s.cwd) : '',
     cwd: s.cwd,
     title: s.title,
+    repo: repoFor(s.cwd),
     active: s.mtime,
     lastChange: last,
     count: s.changes.length,
@@ -296,6 +369,7 @@ function slimChanges(changes) {
 function snapshotV2() {
   return {
     sessions: [...sessions.values()].map(s => ({ ...sessionInfo(s), changes: slimChanges(s.changes) })),
+    repos: [...repos.values()].map(repoInfo),
   }
 }
 
@@ -360,6 +434,7 @@ function scan() {
       }
     }
   }
+  checkRepos()
   if (changed) broadcast(2, 'reset', snapshotV2())
 
   const p = primary()

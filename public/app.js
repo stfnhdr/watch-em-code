@@ -29,6 +29,8 @@ let sessionId = null // gewählte Session
 let selected = null // gewählte Datei (filePath)
 let follow = true
 let connected = false
+/** Repo-Wurzel -> { name, branch } */
+let repos = new Map()
 
 function newSession(info) {
   return { info, files: new Map(), last: null }
@@ -46,6 +48,7 @@ function addChange(s, c) {
   f.removed += c.removed
   f.last = Math.max(f.last, c.ts)
   f.rel = c.rel
+  if (c.repo !== undefined) f.repo = c.repo
   f.content = c.after // null, wenn unbekannt: dann Diff-Ansicht
   if (!s.last || c.ts >= s.last.ts) s.last = c
   return f
@@ -119,7 +122,8 @@ function renderSessions(pingId) {
         now - lastTs < BUSY_MS * 2 ? 'busy' : now - s.info.active < 120000 ? 'recent' : '',
         s.info.id === pingId ? 'ping' : '',
       ].join(' ')
-      const title = `${s.info.cwd || ''}${s.info.cwd ? '\n' : ''}${s.files.size} Dateien geändert`
+      const r = s.info.repo && repos.get(s.info.repo)
+      const title = [s.info.cwd, r && r.branch ? `Branch: ${r.branch}` : '', `${s.files.size} Dateien geändert`].filter(Boolean).join('\n')
       return `<button class="${cls}" data-id="${s.info.id}" title="${esc(title)}"><span class="dot"></span><span class="label">${esc(label(s.info))}</span>${s.info.title && s.info.project ? `<span class="proj">${esc(s.info.project)}</span>` : ''}</button>`
     })
     .join('')
@@ -215,9 +219,21 @@ function renderJumpbar() {
   const last = f.changes[f.changes.length - 1]
   els.jumpbar.innerHTML =
     parts.map((p, i) => `<span class="${i === parts.length - 1 ? 'cur' : ''}">${esc(p)}</span>`).join('<span class="sep">›</span>') +
-    `<span class="spacer"></span><span class="meta">${f.changes.length === 1 ? (f.kind === 'create' ? 'angelegt' : '1 Änderung') : `${f.changes.length} Änderungen`} · ` +
+    `<span class="spacer"></span>${branchHtml(s, f)}<span class="meta">${f.changes.length === 1 ? (f.kind === 'create' ? 'angelegt' : '1 Änderung') : `${f.changes.length} Änderungen`} · ` +
     `<span class="when" data-ts="${last.ts}">${ago(last.ts)}</span> · ` +
     `<span class="plus">+${last.added}</span> <span class="minus">−${last.removed}</span></span>`
+}
+
+const BRANCH_ICON = `<svg width="11" height="13" viewBox="0 0 11 13" fill="none" stroke="currentColor" stroke-width="1.3">
+  <circle cx="3" cy="2.5" r="1.6"/><circle cx="3" cy="10.5" r="1.6"/><circle cx="8.5" cy="4.5" r="1.6"/>
+  <path d="M3 4.1v4.8M8.5 6.1c0 2-2 2.4-5.2 2.9"/></svg>`
+
+/** Branch des Repos, in dem die Datei liegt; bei Unter-Repos mit Repo-Name. */
+function branchHtml(s, f) {
+  const r = f.repo && repos.get(f.repo)
+  if (!r || !r.branch) return ''
+  const sub = f.repo !== s.info.repo ? `<span class="repo">${esc(r.name)}</span>` : ''
+  return `<span class="branch" title="${esc(r.root)}">${sub}${BRANCH_ICON}<span>${esc(r.branch)}</span></span>`
 }
 
 // ---------------------------------------------------------------------------
@@ -437,6 +453,7 @@ events.addEventListener('reset', e => {
     next.set(info.id, s)
   }
   sessions = next
+  repos = new Map((snap.repos || []).map(r => [r.root, r]))
   if (!sessions.has(sessionId)) {
     sessionId = pickDefaultSession()
     follow = true
@@ -449,6 +466,12 @@ events.addEventListener('reset', e => {
   connected = true
   renderAll()
   buddy.wake(s && s.last ? s.last.ts : 0)
+})
+
+events.addEventListener('repo', e => {
+  const r = JSON.parse(e.data)
+  repos.set(r.root, r)
+  renderJumpbar()
 })
 
 events.addEventListener('session', e => {
