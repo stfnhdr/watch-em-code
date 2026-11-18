@@ -634,6 +634,7 @@ setInterval(() => {
   renderSessions()
 }, 2000)
 
+$('logo').innerHTML = PixelLogo.svg('Watch Him Code', { cell: 3, edge: 1, drop: 2 })
 const buddy = Buddy.create(els.buddy)
 applySettings()
 

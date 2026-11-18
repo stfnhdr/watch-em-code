@@ -39,6 +39,10 @@
   --bubble-bg: #f3f0e8;
   --bubble-fg: #222226;
 
+  --logo-fill: #3d1403;
+  --logo-edge: #e0823c;
+  --logo-drop: #000000;
+
   --sx-k: #d98ab4;
   --sx-s: #e39a85;
   --sx-n: #d4c27a;
@@ -76,6 +80,10 @@
 
   --bubble-bg: #2b2b30;
   --bubble-fg: #f3f0e8;
+
+  --logo-fill: #e0823c;
+  --logo-edge: #3d1403;
+  --logo-drop: rgba(0, 0, 0, 0.18);
 
   --sx-k: #a8329a;
   --sx-s: #b4412f;
@@ -131,29 +139,25 @@ button {
   display: flex;
   align-items: flex-end;
   gap: 16px;
-  height: 56px;
+  height: 52px;
   padding: 0 12px 0 18px;
   background: var(--title);
 }
-/* Pixel-Logo: dunkles Orange innen, kräftiger oranger Pixelrand (8 Richtungen) */
+/* Pixel-Logo (eigene Pixelgrafik aus logo.js), Farben je Modus */
 .app {
-  --logo-fill: #3d1403;
-  --logo-edge: #ff8f2e;
   align-self: center;
+  display: flex;
   margin-right: 6px;
-  padding: 0 4px;
-  color: var(--logo-fill);
-  --logo-drop: #1c0801;
-  font: 400 26px/1 'Pixelify Sans', var(--mono);
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  white-space: nowrap;
-  /* Retro-Arcade: Pixelrand, darunter ein harter, versetzter Schatten */
-  text-shadow: 2px 0 var(--logo-edge), -2px 0 var(--logo-edge), 0 2px var(--logo-edge), 0 -2px var(--logo-edge),
-    2px 2px var(--logo-edge), -2px -2px var(--logo-edge), 2px -2px var(--logo-edge), -2px 2px var(--logo-edge),
-    4px 4px var(--logo-drop), 2px 4px var(--logo-drop), 4px 2px var(--logo-drop), 0 4px var(--logo-drop),
-    -2px 4px var(--logo-drop);
   user-select: none;
+}
+.pixel-logo .lo-fill {
+  fill: var(--logo-fill);
+}
+.pixel-logo .lo-edge {
+  fill: var(--logo-edge);
+}
+.pixel-logo .lo-drop {
+  fill: var(--logo-drop);
 }
 .sessions {
   flex: 1;

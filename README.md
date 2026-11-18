@@ -85,5 +85,6 @@ Der Server lauscht nur auf `127.0.0.1`, ist also von außen nicht erreichbar.
 - `public/index.html`, `style.css` – Oberfläche
 - `public/app.js` – Live-Logik, Sessions, Navigator, Code-Ansicht
 - `public/buddy.js` – der Pixel-Junior
+- `public/logo.js` – das Pixel-Logo (eigene 5×7-Buchstaben als SVG)
 - `public/base/` – eingefrorene Basis-Ansicht
 - `public/highlight.js` – kleiner eigener Syntax-Highlighter
