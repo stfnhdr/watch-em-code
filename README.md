@@ -25,12 +25,11 @@ Die Oberfläche ist an Xcode angelehnt und reine Ansicht – bearbeitet wird nic
   Sessions lassen nur deren Punkt kurz aufblinken.
 - **Navigator** (links): Ordnerbaum der geänderten Dateien, **A** = neu, **M** = geändert,
   dazu `+`/`−`.
-- **Tabs**: die zuletzt bearbeiteten Dateien (max. 6), ein Punkt zeigt „gerade in Arbeit“.
 - **Code**: die ganze Datei mit Zeilennummern. Die letzte Änderung ist im Rand markiert
   (grün = neu, bernstein = geändert, roter Keil = gelöscht, Maus darüber zeigt den alten
   Text). Bei neuen Änderungen scrollt die Ansicht hin, gelöschte Zeilen erscheinen kurz
   durchgestrichen und klappen dann ein.
-- **Live**: folgt automatisch der aktuellen Datei. Klick auf Datei/Tab hält fest,
+- **Live**: folgt automatisch der aktuellen Datei. Klick auf eine Datei hält fest,
   zurück mit „Live folgen“ oder `Esc`.
 - **Pixel-Junior** (unten links, Knopf oben rechts schaltet ihn ab): tippt, wenn Code
   kommt, legt neue Dateien ab, radiert bei Löschungen, schläft nach 2 Minuten Ruhe ein
@@ -70,7 +69,7 @@ Der Server lauscht nur auf `127.0.0.1`, ist also von außen nicht erreichbar.
 
 - `server.js` – Beobachter + HTTP/SSE-Server (nur Node-Bordmittel)
 - `public/index.html`, `style.css` – Oberfläche
-- `public/app.js` – Live-Logik, Sessions, Navigator, Tabs, Code-Ansicht
+- `public/app.js` – Live-Logik, Sessions, Navigator, Code-Ansicht
 - `public/buddy.js` – der Pixel-Junior
 - `public/base/` – eingefrorene Basis-Ansicht
 - `public/highlight.js` – kleiner eigener Syntax-Highlighter

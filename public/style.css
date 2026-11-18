@@ -11,7 +11,7 @@
 :root {
   --bg: #1f1f23; /* Editor */
   --side: #232327; /* Navigator */
-  --bar: #2a2a2f; /* Titel- und Tableiste */
+  --bar: #2a2a2f; /* Titelleiste */
   --sel: #3a3a42; /* Auswahl */
   --hover: rgba(255, 255, 255, 0.04);
   --line: rgba(255, 255, 255, 0.07);
@@ -55,18 +55,18 @@ button {
   cursor: pointer;
 }
 
-/* Titelleiste ------------------------------------------------------------- */
+/* Titelleiste mit Session-Tabs -------------------------------------------- */
 .titlebar {
   display: flex;
-  align-items: center;
-  gap: 18px;
-  height: 40px;
+  align-items: flex-end;
+  gap: 16px;
+  height: 46px;
   padding: 0 12px 0 16px;
-  background: var(--bar);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.35);
+  background: #161619;
 }
 .app {
-  color: var(--dim);
+  align-self: center;
+  color: var(--faint);
   font-weight: 600;
   font-size: 12px;
   letter-spacing: 0.02em;
@@ -75,32 +75,63 @@ button {
 .sessions {
   flex: 1;
   display: flex;
-  justify-content: center;
-  gap: 2px;
+  align-items: flex-end;
+  gap: 3px;
+  padding: 0 10px;
   min-width: 0;
   overflow: hidden;
 }
+/* Jede Session ist ein Tab: oben gerundet, der gewählte geht nahtlos in die Ansicht über */
 .session {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 7px;
-  max-width: 240px;
-  padding: 4px 11px;
-  border-radius: 6px;
+  gap: 8px;
+  height: 36px;
+  min-width: 0;
+  max-width: 280px;
+  padding: 0 16px 0 13px;
+  border-radius: 9px 9px 0 0;
+  background: #222226;
   color: var(--dim);
   white-space: nowrap;
 }
-.session span.label {
+.session .label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.session .proj {
+  color: var(--faint);
+  font-size: 12px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .session:hover {
-  background: var(--hover);
+  background: #29292e;
   color: var(--text);
 }
 .session.selected {
-  background: var(--sel);
+  background: var(--bg);
   color: var(--text);
+  font-weight: 500;
+}
+/* geschwungene Übergänge links und rechts unten, wie bei Browser-Tabs */
+.session.selected::before,
+.session.selected::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  width: 9px;
+  height: 9px;
+  background: radial-gradient(circle at var(--cx) 0, transparent 8.5px, var(--bg) 9px);
+}
+.session.selected::before {
+  left: -9px;
+  --cx: 0;
+}
+.session.selected::after {
+  right: -9px;
+  --cx: 100%;
 }
 .session .dot {
   flex: none;
@@ -136,6 +167,7 @@ button {
 }
 
 .tools {
+  align-self: center;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -282,64 +314,7 @@ button {
   line-height: 1.6;
 }
 
-/* Tabs + Jump Bar --------------------------------------------------------- */
-.tabs {
-  display: flex;
-  height: 32px;
-  background: var(--bar);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.3);
-  overflow: hidden;
-}
-.tab {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  min-width: 0;
-  max-width: 220px;
-  flex: 0 1 auto;
-  padding: 0 14px;
-  color: var(--dim);
-  border-right: 1px solid rgba(0, 0, 0, 0.25);
-  white-space: nowrap;
-}
-.tab .name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.tab:hover {
-  color: var(--text);
-}
-.tab.selected {
-  background: var(--bg);
-  color: var(--text);
-}
-.tab .pip {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: transparent;
-}
-.tab.busy .pip {
-  background: rgb(var(--tone, var(--mod)));
-  animation: pulse 1.2s ease-in-out infinite;
-}
-.tab.A {
-  --tone: var(--add);
-}
-.tab.M {
-  --tone: var(--mod);
-}
-.tab.enter {
-  animation: tabin 0.35s ease-out;
-}
-@keyframes tabin {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-}
-
+/* Jump Bar ---------------------------------------------------------------- */
 .jumpbar {
   display: flex;
   align-items: center;

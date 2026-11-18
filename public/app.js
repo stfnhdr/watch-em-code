@@ -2,8 +2,7 @@
 // Reine Ansicht: zeigt die Dateien so, wie der Agent sie gerade verändert.
 // Bearbeiten ist bewusst nicht möglich.
 
-const MAX_TABS = 6
-const BUSY_MS = 4000 // so lange gilt eine Datei/Session als „gerade in Arbeit“
+const BUSY_MS = 4000 // so lange gilt eine Session als „gerade in Arbeit“
 const GHOST_MS = 2600 // gelöschte Zeilen bleiben so lange sichtbar
 const STAGGER_MS = 22
 const STAGGER_MAX = 40
@@ -13,7 +12,6 @@ const $ = id => document.getElementById(id)
 const els = {
   sessions: $('sessions'),
   tree: $('tree'),
-  tabs: $('tabs'),
   jumpbar: $('jumpbar'),
   editor: $('editor'),
   live: $('live'),
@@ -25,7 +23,7 @@ const esc = Highlight.esc
 // ---------------------------------------------------------------------------
 // Zustand
 
-/** id -> { info, files: Map<path, File>, tabs: path[], order: change[] } */
+/** id -> { info, files: Map<path, File>, last: change } */
 let sessions = new Map()
 let sessionId = null // gewählte Session
 let selected = null // gewählte Datei (filePath)
@@ -33,7 +31,7 @@ let follow = true
 let connected = false
 
 function newSession(info) {
-  return { info, files: new Map(), tabs: [], last: null }
+  return { info, files: new Map(), last: null }
 }
 
 /** Datei: { filePath, rel, kind, added, removed, changes[], content, last } */
@@ -50,14 +48,7 @@ function addChange(s, c) {
   f.rel = c.rel
   f.content = c.after // null, wenn unbekannt: dann Diff-Ansicht
   if (!s.last || c.ts >= s.last.ts) s.last = c
-  openTab(s, c.filePath)
   return f
-}
-
-function openTab(s, path) {
-  if (s.tabs.includes(path)) return
-  s.tabs.push(path)
-  if (s.tabs.length > MAX_TABS) s.tabs.shift()
 }
 
 const cur = () => sessions.get(sessionId)
@@ -129,7 +120,7 @@ function renderSessions(pingId) {
         s.info.id === pingId ? 'ping' : '',
       ].join(' ')
       const title = `${s.info.cwd || ''}${s.info.cwd ? '\n' : ''}${s.files.size} Dateien geändert`
-      return `<button class="${cls}" data-id="${s.info.id}" title="${esc(title)}"><span class="dot"></span><span class="label">${esc(label(s.info))}</span></button>`
+      return `<button class="${cls}" data-id="${s.info.id}" title="${esc(title)}"><span class="dot"></span><span class="label">${esc(label(s.info))}</span>${s.info.title && s.info.project ? `<span class="proj">${esc(s.info.project)}</span>` : ''}</button>`
     })
     .join('')
   // Bei nur einer Session reicht der Name, ohne Auswahl-Optik.
@@ -211,31 +202,7 @@ els.tree.addEventListener('click', e => {
 })
 
 // ---------------------------------------------------------------------------
-// Tabs + Jump Bar
-
-function renderTabs(enterPath) {
-  const s = cur()
-  if (!s) {
-    els.tabs.innerHTML = ''
-    return
-  }
-  const now = Date.now()
-  els.tabs.innerHTML = s.tabs
-    .map(p => {
-      const f = s.files.get(p)
-      if (!f) return ''
-      const st = f.kind === 'create' ? 'A' : 'M'
-      const name = split(f.rel).name
-      const cls = ['tab', st, p === selected ? 'selected' : '', now - f.last < BUSY_MS ? 'busy' : '', p === enterPath ? 'enter' : ''].join(' ')
-      return `<button class="${cls}" data-path="${esc(p)}" title="${esc(f.rel)}">${fileIcon(name)}<span class="name">${esc(name)}</span><span class="pip"></span></button>`
-    })
-    .join('')
-}
-
-els.tabs.addEventListener('click', e => {
-  const b = e.target.closest('.tab')
-  if (b) pick(b.dataset.path)
-})
+// Jump Bar
 
 function renderJumpbar() {
   const s = cur()
@@ -398,7 +365,6 @@ function applyStagger() {
 function renderAll(opts = {}) {
   renderSessions(opts.ping)
   renderTree(opts.flash)
-  renderTabs(opts.enter)
   renderJumpbar()
   renderEditor(opts.animate)
   renderLive()
@@ -426,7 +392,6 @@ document.addEventListener('keydown', e => {
 setInterval(() => {
   for (const el of document.querySelectorAll('.when[data-ts]')) el.textContent = ago(Number(el.dataset.ts))
   renderSessions()
-  renderTabs()
 }, 2000)
 
 // Pixel-Junior
@@ -502,7 +467,6 @@ events.addEventListener('change', e => {
     s = newSession({ id: sid, project: '', cwd: '', title: '', active: Date.now() })
     sessions.set(sid, s)
   }
-  const isNewFile = !s.files.has(c.filePath)
   const f = addChange(s, c)
 
   // Ausgewählte Session ohne eigene Änderungen? Dann zur aktiven wechseln.
@@ -515,7 +479,6 @@ events.addEventListener('change', e => {
   if (follow) selected = c.filePath
   renderAll({
     flash: c.filePath,
-    enter: isNewFile ? c.filePath : null,
     animate: selected === c.filePath,
   })
   buddy.onChange(c, f, s)

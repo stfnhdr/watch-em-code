@@ -178,13 +178,52 @@ let seq = 0
 const sessions = new Map()
 
 function addSession(info) {
-  const s = { ...info, cwd: '', title: sessionTitle(info), changes: [], logs: new Map() }
+  const s = { ...info, cwd: '', title: sessionTitle(info), changes: [], logs: new Map(), contents: new Map() }
   sessions.set(s.id, s)
   const fresh = []
   for (const file of [s.file, ...subagentLogs(s)]) readNew(s, file, fresh)
   fresh.sort((a, b) => a.ts - b.ts)
   s.changes = fresh
   return s
+}
+
+/** Passt ein Dateiinhalt zu den neuen Zeilen der Hunks? */
+function matches(text, hunks) {
+  const lines = text.split('\n')
+  for (const h of hunks) {
+    let n = h.newStart - 1
+    for (const l of h.lines) {
+      if (l[0] !== ' ' && l[0] !== '+') continue
+      if (lines[n] !== l.slice(1)) return false
+      n++
+    }
+  }
+  return true
+}
+
+/**
+ * Manche Einträge enthalten den alten Inhalt nicht (originalFile = null).
+ * Dann den zuletzt bekannten Stand fortschreiben oder, als letzte Möglichkeit,
+ * die Datei von der Platte lesen – aber nur, wenn sie zur Änderung passt.
+ */
+function fillAfter(s, c) {
+  if (c.after === null) {
+    const prev = s.contents.get(c.filePath)
+    if (typeof prev === 'string') {
+      const next = applyPatch(prev, c.hunks)
+      if (next !== null && matches(next, c.hunks)) c.after = next
+    }
+  }
+  if (c.after === null) {
+    try {
+      if (fs.statSync(c.filePath).size <= MAX_AFTER) {
+        const disk = fs.readFileSync(c.filePath, 'utf8')
+        if (matches(disk, c.hunks)) c.after = disk
+      }
+    } catch {}
+  }
+  if (c.after !== null) s.contents.set(c.filePath, c.after)
+  else s.contents.delete(c.filePath)
 }
 
 /** Liest neue vollständige Zeilen einer Protokolldatei. */
@@ -224,7 +263,10 @@ function readNew(s, file, sink) {
       }
       if (typeof entry.cwd === 'string' && (!entry.isSidechain || !s.cwd)) s.cwd = entry.cwd
       const change = toChange(entry, ++seq)
-      if (change) sink.push(change)
+      if (change) {
+        fillAfter(s, change)
+        sink.push(change)
+      }
     }
   } finally {
     fs.closeSync(fd)
