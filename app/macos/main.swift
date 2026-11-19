@@ -9,7 +9,7 @@ let defaultPort = 4777
 let darkBar = NSColor(srgbRed: 0x16 / 255.0, green: 0x16 / 255.0, blue: 0x19 / 255.0, alpha: 1)
 let lightBar = NSColor(srgbRed: 0xE2 / 255.0, green: 0xE2 / 255.0, blue: 0xE7 / 255.0, alpha: 1)
 
-final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
+final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKNavigationDelegate {
     var window: NSWindow!
     var webView: WKWebView!
     var server: Process?
@@ -111,6 +111,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         return true
     }
 
+    // MARK: Blank window protection
+
+    /// The page runs in a separate WebKit process. If macOS ends it (memory
+    /// pressure during long background hours) or it crashes, the window would
+    /// stay blank. Load the page again right away instead.
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        NSLog("Watch Him Code: web content process ended – reloading")
+        if webView.url != nil { webView.reload() }
+    }
+
     @objc func showWindow() {
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -131,6 +141,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         config.userContentController.add(self, name: "whc")
         webView = WKWebView(frame: .zero, configuration: config)
         webView.setValue(false, forKey: "drawsBackground")
+        webView.navigationDelegate = self
 
         window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1400, height: 900),

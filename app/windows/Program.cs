@@ -164,6 +164,15 @@ namespace WatchHimCode
             }
 
             web.CoreWebView2.Settings.IsStatusBarEnabled = false;
+            // The page runs in a separate process. If it dies or hangs, the window
+            // would stay blank – load the page again instead.
+            web.CoreWebView2.ProcessFailed += (s, e) =>
+            {
+                if (e.ProcessFailedKind == CoreWebView2ProcessFailedKind.RenderProcessExited ||
+                    e.ProcessFailedKind == CoreWebView2ProcessFailedKind.RenderProcessUnresponsive ||
+                    e.ProcessFailedKind == CoreWebView2ProcessFailedKind.FrameRenderProcessExited)
+                    BeginInvoke(new Action(() => { try { web.CoreWebView2.Reload(); } catch { } }));
+            };
             web.CoreWebView2.WebMessageReceived += (s, e) =>
             {
                 string json = e.WebMessageAsJson ?? "";

@@ -294,7 +294,19 @@ let connected = false
 let repos = new Map()
 
 function newSession(info) {
-  return { info, files: new Map(), last: null, all: [] }
+  return { info, files: new Map(), last: null, all: [], latest: new Map() }
+}
+
+// Memory: the app may run for days in the background. Keep the full file
+// content only on the newest change of each file (like the server's snapshot)
+// and at most ALL_MAX changes per session.
+const ALL_MAX = 4000
+function remember(s, c) {
+  const prev = s.latest.get(c.filePath)
+  if (prev && prev !== c) prev.after = null
+  s.latest.set(c.filePath, c)
+  s.all.push(c)
+  if (s.all.length > ALL_MAX) s.all.splice(0, s.all.length - ALL_MAX)
 }
 
 // ---------------------------------------------------------------------------
@@ -1419,7 +1431,8 @@ events.addEventListener('reset', e => {
   for (const si of snap.sessions) {
     const { changes, ...info } = si
     const s = newSession(info)
-    s.all = changes
+    s.all = []
+    for (const c of changes) remember(s, c)
     rebuild(s)
     next.set(info.id, s)
   }
@@ -1473,7 +1486,7 @@ function receive(sid, c) {
     s = newSession({ id: sid, project: '', cwd: '', title: '', active: Date.now() })
     sessions.set(sid, s)
   }
-  s.all.push(c)
+  remember(s, c)
   if (!shownChange(sid, c)) return // before this session's fresh start
   const f = addChange(s, c)
 
