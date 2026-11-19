@@ -628,6 +628,16 @@ function listen(port) {
     scan()
     setInterval(poll, POLL_MS)
     setInterval(scan, SCAN_MS)
+    // Von der Mac-/Windows-App gestartet: zusammen mit ihr beenden
+    const parent = Number(process.env.WHC_PARENT_PID) || 0
+    if (parent)
+      setInterval(() => {
+        try {
+          process.kill(parent, 0)
+        } catch {
+          process.exit(0)
+        }
+      }, 3000)
     openWindow(url)
   })
 }

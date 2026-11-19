@@ -46,6 +46,10 @@ const darkQuery = matchMedia('(prefers-color-scheme: dark)')
 function applyTheme() {
   const t = settings.theme === 'system' ? (darkQuery.matches ? 'dark' : 'light') : settings.theme
   document.documentElement.dataset.theme = t
+  // In der Mac-App: Titelleiste des Fensters mitfärben
+  try {
+    window.webkit?.messageHandlers?.whc?.postMessage({ theme: t })
+  } catch {}
 }
 darkQuery.addEventListener('change', applyTheme)
 

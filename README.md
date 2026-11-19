@@ -26,6 +26,24 @@ als Symbol im Launchpad bzw. Startmenü (der Server muss dafür laufen).
 
 Voraussetzung: Node.js 18 oder neuer. Keine `npm install` nötig.
 
+## Mac-App
+
+Eine echte App zum Doppelklicken: `dist/Watch Him Code.app`. Sie startet den Server
+unsichtbar mit, zeigt die Oberfläche in einem eigenen Fenster (System-WebView, kein
+Browser nötig) und beendet den Server beim Schließen wieder – auch wenn die App abstürzt.
+Fenstergröße und -position werden gemerkt, die Titelleiste folgt Hell/Dunkel.
+
+Bauen (braucht Xcode bzw. die Command Line Tools, Ergebnis ca. 1 MB plus Oberfläche):
+
+```bash
+./app/macos/build.sh
+```
+
+Danach `dist/Watch Him Code.app` z. B. in den Programme-Ordner ziehen. Node.js 18+ muss
+installiert sein; die App findet es wie das Terminal (Login-Shell) oder an den üblichen
+Orten (Homebrew, nvm, Volta). Server und Oberfläche werden beim Bauen in die App kopiert –
+nach Änderungen am Code also neu bauen.
+
 ## Bedienung
 
 Reine Ansicht – bearbeitet wird nichts. Über das Regler-Symbol oben rechts
@@ -102,6 +120,7 @@ Der Server lauscht nur auf `127.0.0.1`, ist also von außen nicht erreichbar.
 - `public/app.js` – Live-Logik, Sessions, Navigator, Code-Ansicht
 - `public/buddy.js` – der Pixel-Junior
 - `public/logo.js` – das Pixel-Logo (eigene 5×7-Buchstaben als SVG)
+- `app/macos/` – Mac-App: `main.swift` (Fenster + Serverstart), `Info.plist`, Symbol, `build.sh`
 - `public/manifest.webmanifest`, `icon*.png`, `icon.svg` – App-Symbol und Web-App-Angaben
 - `public/base/` – eingefrorene Basis-Ansicht
 - `public/highlight.js` – kleiner eigener Syntax-Highlighter
