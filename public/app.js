@@ -29,7 +29,7 @@ const esc = Highlight.esc
 // ---------------------------------------------------------------------------
 // Einstellungen (bleiben im Browser gespeichert)
 
-const DEFAULTS = { view: 'editor', theme: 'system', buddy: true }
+const DEFAULTS = { view: 'editor', theme: 'system', buddy: true, diff: 'inline' }
 const settings = { ...DEFAULTS }
 try {
   Object.assign(settings, JSON.parse(localStorage.getItem('whc.settings') || '{}'))
@@ -64,10 +64,8 @@ function applySettings(changed) {
   for (const b of els.settings.querySelectorAll('[data-key]')) {
     b.classList.toggle('on', String(settings[b.dataset.key]) === b.dataset.value)
   }
-  if (!changed || changed === 'view') {
-    els.list.innerHTML = ''
-    renderAll()
-  }
+  if (!changed || changed === 'view') els.list.innerHTML = ''
+  if (!changed || changed === 'view' || changed === 'diff') renderAll()
 }
 
 els.settings.addEventListener('click', e => {
@@ -361,6 +359,11 @@ function branchHtml(s, f) {
   return `<span class="branch" title="${esc(r.root)}">${sub}${BRANCH_ICON}<span>${esc(r.branch)}</span></span>`
 }
 
+function hintHtml(c) {
+  const { note } = diffMode(c)
+  return note ? `<span class="hint">${esc(note)}</span>` : ''
+}
+
 function renderJumpbar() {
   const s = cur()
   const f = curFile()
@@ -372,11 +375,136 @@ function renderJumpbar() {
   const last = f.changes[f.changes.length - 1]
   els.jumpbar.innerHTML =
     parts.map((p, i) => `<span class="${i === parts.length - 1 ? 'cur' : ''}">${esc(p)}</span>`).join('<span class="sep">›</span>') +
-    `<span class="spacer"></span>${branchHtml(s, f)}<span class="meta">${
+    `<span class="spacer"></span>${hintHtml(last)}${branchHtml(s, f)}<span class="meta">${
       f.changes.length === 1 ? (f.kind === 'create' ? 'angelegt' : '1 Änderung') : `${f.changes.length} Änderungen`
     } · ` +
     `<span class="when" data-ts="${last.ts}">${ago(last.ts)}</span> · ` +
     `<span class="plus">+${last.added}</span> <span class="minus">−${last.removed}</span></span>`
+}
+
+// ---------------------------------------------------------------------------
+// Diff-Modus: Neu, Inline oder Nebeneinander
+
+const SPLIT_MIN_WIDTH = 900
+
+/** Tatsächlicher Modus für eine Änderung, mit Hinweis, falls abweichend. */
+function diffMode(c) {
+  const m = settings.diff
+  if (m !== 'split') return { mode: m }
+  if (c.kind === 'create') return { mode: 'new', note: 'neue Datei – kein alter Stand' }
+  if (els.view.clientWidth < SPLIT_MIN_WIDTH) return { mode: 'inline', note: 'zu schmal für nebeneinander' }
+  return { mode: 'split' }
+}
+
+/** Alter Inhalt aus neuem Inhalt und Hunks zurückrechnen. */
+function unpatch(after, hunks) {
+  const src = after.split('\n')
+  const out = []
+  let j = 0
+  for (const h of hunks) {
+    const start = Math.max(0, h.newStart - 1 + (h.newLines === 0 ? 1 : 0))
+    while (j < start && j < src.length) out.push(src[j++])
+    for (const l of h.lines) {
+      if (l[0] === '-') out.push(l.slice(1))
+      else if (l[0] === ' ') {
+        out.push(l.slice(1))
+        j++
+      } else if (l[0] === '+') j++
+    }
+  }
+  while (j < src.length) out.push(src[j++])
+  return out.join('\n')
+}
+
+/** Zeilen eines Hunks paarweise ausgerichtet: ctx | mod | del | add. */
+function alignHunk(h) {
+  const rows = []
+  let o = h.oldStart
+  let n = h.newStart
+  const L = h.lines
+  let i = 0
+  while (i < L.length) {
+    const ch = L[i][0]
+    if (ch === ' ') {
+      rows.push({ t: 'ctx', o: o++, n: n++, ol: L[i].slice(1), nl: L[i].slice(1) })
+      i++
+      continue
+    }
+    if (ch !== '+' && ch !== '-') {
+      i++
+      continue
+    }
+    const dels = []
+    const adds = []
+    while (i < L.length && (L[i][0] === '+' || L[i][0] === '-')) {
+      ;(L[i][0] === '-' ? dels : adds).push(L[i].slice(1))
+      i++
+    }
+    for (let k = 0; k < Math.max(dels.length, adds.length); k++) {
+      const d = k < dels.length
+      const a = k < adds.length
+      rows.push({ t: d && a ? 'mod' : d ? 'del' : 'add', o: d ? o++ : '', n: a ? n++ : '', ol: d ? dels[k] : null, nl: a ? adds[k] : null })
+    }
+  }
+  return rows
+}
+
+/** Ganze Datei alt gegen neu, Zeile für Zeile ausgerichtet. */
+function alignFile(oldLines, newLines, hunks) {
+  const rows = []
+  let oi = 1
+  let ni = 1
+  const pair = () => rows.push({ t: 'ctx', o: oi, n: ni, ol: oldLines[oi - 1], nl: newLines[ni - 1] })
+  for (const h of hunks) {
+    const os = h.oldLines === 0 ? h.oldStart + 1 : h.oldStart
+    while (oi < os && oi <= oldLines.length && ni <= newLines.length) {
+      pair()
+      oi++
+      ni++
+    }
+    rows.push(...alignHunk(h))
+    let oc = 0
+    let nc = 0
+    for (const l of h.lines) {
+      if (l[0] === ' ' || l[0] === '-') oc++
+      if (l[0] === ' ' || l[0] === '+') nc++
+    }
+    oi = os + oc
+    ni = (h.newLines === 0 ? h.newStart + 1 : h.newStart) + nc
+  }
+  while (oi <= oldLines.length && ni <= newLines.length) {
+    pair()
+    oi++
+    ni++
+  }
+  return rows
+}
+
+/** Tabelle für die Nebeneinander-Ansicht. rows können Lücken { gap: Zeile } enthalten. */
+function splitTable(rows, lang, animate) {
+  const sl = { block: null }
+  const sr = { block: null }
+  let k = 0
+  const out = ['<table class="code split"><colgroup><col class="cl"><col><col class="cl"><col></colgroup>']
+  for (const r of rows) {
+    if (r.gap) {
+      out.push(`<tr class="gap"><td colspan="4">⋯ ab Zeile ${r.gap}</td></tr>`)
+      continue
+    }
+    const changed = r.t !== 'ctx'
+    const delay = animate && changed && k < STAGGER_MAX ? ` style="animation-delay:${k++ * STAGGER_MS}ms"` : ''
+    const left =
+      r.ol === null
+        ? '<td class="ln"></td><td class="src cfill"></td>'
+        : `<td class="ln">${r.o}</td><td class="src${r.t === 'del' || r.t === 'mod' ? ' cdel' : ''}">${Highlight.line(r.ol, lang, sl) || ' '}</td>`
+    const right =
+      r.nl === null
+        ? '<td class="ln lnr"></td><td class="src cfill"></td>'
+        : `<td class="ln lnr">${r.n}</td><td class="src${r.t === 'add' || r.t === 'mod' ? ' cadd' : ''}">${Highlight.line(r.nl, lang, sr) || ' '}</td>`
+    out.push(`<tr class="sx-${r.t}${animate && changed ? ' in' : ''}"${delay}>${left}${right}</tr>`)
+  }
+  out.push('</table>')
+  return out.join('')
 }
 
 // ---------------------------------------------------------------------------
@@ -388,8 +516,45 @@ function renderMain(animate, changeId) {
     els.view.innerHTML = `<div class="waiting"><b>Warte auf Code …</b><span>Sobald Claude eine Datei anlegt oder ändert, erscheint sie hier.</span></div>`
     return
   }
-  if (settings.view === 'cards') renderDiff(f, animate ? changeId : null)
-  else renderEditor(f, animate)
+  if (settings.view === 'cards') return renderDiff(f, animate ? changeId : null)
+  const c = f.changes[f.changes.length - 1]
+  const { mode } = diffMode(c)
+  if (mode === 'split') renderEditorSplit(f, c, animate)
+  else renderEditor(f, animate, mode === 'inline')
+}
+
+function renderEditorSplit(f, c, animate) {
+  const lang = Highlight.langOf(f.filePath)
+  if (f.content === null) {
+    // Ganzer Inhalt unbekannt: nur die geänderten Stellen nebeneinander
+    els.view.innerHTML =
+      `<div class="notice">Nur die geänderten Stellen – den ganzen Inhalt kennt das Protokoll hier nicht.</div>` +
+      `<div class="split-wrap">${splitTable(hunkRows(c), lang, animate)}</div>`
+    return
+  }
+  const strip = t => {
+    const l = t.split('\n')
+    if (l.length > 1 && l[l.length - 1] === '') l.pop()
+    return l
+  }
+  const newLines = strip(f.content)
+  const oldLines = strip(unpatch(f.content, c.hunks))
+  els.view.innerHTML = `<div class="split-wrap">${splitTable(alignFile(oldLines, newLines, c.hunks), lang, animate)}</div>`
+  const first = els.view.querySelector('tr:not(.sx-ctx):not(.gap)')
+  if (first) {
+    const top = first.offsetTop - els.view.clientHeight * 0.3
+    els.view.scrollTo({ top: Math.max(0, top), behavior: animate ? 'smooth' : 'auto' })
+  }
+}
+
+/** Hunks einer Änderung als ausgerichtete Zeilen mit Lücken dazwischen. */
+function hunkRows(c) {
+  const rows = []
+  c.hunks.forEach((h, hi) => {
+    if (hi > 0 || h.newStart > 1) rows.push({ gap: h.newStart })
+    rows.push(...alignHunk(h))
+  })
+  return rows
 }
 
 /** Markierungen für den neuen Dateiinhalt aus den Hunks der letzten Änderung. */
@@ -438,7 +603,7 @@ function applyStagger() {
   }
 }
 
-function renderEditor(f, animate) {
+function renderEditor(f, animate, showGhosts = true) {
   const c = f.changes[f.changes.length - 1]
   const lang = Highlight.langOf(f.filePath)
   const state = { block: null }
@@ -454,7 +619,9 @@ function renderEditor(f, animate) {
       for (const raw of h.lines) {
         const sign = raw[0]
         const code = Highlight.line(raw.slice(1), lang, state)
-        if (sign === '-') out.push(rowHtml('', 'ghost', code))
+        if (sign === '-') {
+          if (showGhosts) out.push(rowHtml('', 'ghost', code))
+        }
         else if (sign === '+') out.push(rowHtml(n++, animate ? 'add fresh' : 'add', code, animate && count < STAGGER_MAX ? count : undefined))
         else out.push(rowHtml(n++, '', code))
         count++
@@ -475,7 +642,7 @@ function renderEditor(f, animate) {
     const del = ghosts.get(i)
     if (del) {
       const dstate = { block: null }
-      if (animate) for (const d of del) out.push(rowHtml('', 'ghost', Highlight.line(d, lang, dstate)))
+      if (animate && showGhosts) for (const d of del) out.push(rowHtml('', 'ghost', Highlight.line(d, lang, dstate)))
       out.push(`<i data-delmark="${esc(del.join('\n'))}"></i>`) // Keil an der Folgezeile
     }
     if (i > total) break
@@ -517,6 +684,17 @@ function renderEditor(f, animate) {
 }
 
 function changeHtml(c, f, isNewest, animate) {
+  const { mode } = diffMode(c)
+  const meta = `
+      <div class="meta">
+        <span class="first">${kindWord(f, c)}</span><span>${new Date(c.ts).toLocaleTimeString('de-DE')}</span>
+        <span class="when" data-ts="${c.ts}">${ago(c.ts)}</span>
+        <span><span class="plus">+${c.added}</span> <span class="minus">−${c.removed}</span></span>
+      </div>`
+  if (mode === 'split') {
+    return `<div class="change${isNewest ? '' : ' old'}">${meta}${splitTable(hunkRows(c), Highlight.langOf(c.filePath), animate)}</div>`
+  }
+  const onlyNew = mode === 'new'
   const lang = Highlight.langOf(c.filePath)
   const state = { block: null }
   const rows = []
@@ -525,7 +703,7 @@ function changeHtml(c, f, isNewest, animate) {
 
   c.hunks.forEach((h, hi) => {
     if (hi > 0 || (h.newStart > 1 && c.kind !== 'create')) {
-      rows.push(`<tr class="gap"><td colspan="4">⋯ ab Zeile ${h.newStart}</td></tr>`)
+      rows.push(`<tr class="gap"><td colspan="${onlyNew ? 3 : 4}">⋯ ab Zeile ${h.newStart}</td></tr>`)
     }
     let o = h.oldStart
     let n = h.newStart
@@ -535,6 +713,10 @@ function changeHtml(c, f, isNewest, animate) {
         continue
       }
       const sign = raw[0]
+      if (onlyNew && sign === '-') {
+        o++
+        continue
+      }
       let cls = ''
       let lo = ''
       let ln = ''
@@ -554,7 +736,8 @@ function changeHtml(c, f, isNewest, animate) {
       const code = cls === 'note' ? esc(raw) : Highlight.line(raw.slice(1), lang, state)
       rows.push(
         `<tr class="${cls}${animate ? ' in' : ''}"${delay}>` +
-          `<td class="ln">${lo}</td><td class="ln">${ln}</td>` +
+          (onlyNew ? '' : `<td class="ln">${lo}</td>`) +
+          `<td class="ln">${ln}</td>` +
           `<td class="sign">${sign === '+' ? '+' : sign === '-' ? '−' : ''}</td>` +
           `<td class="src">${code || ' '}</td></tr>`,
       )
@@ -563,12 +746,7 @@ function changeHtml(c, f, isNewest, animate) {
   })
 
   return `
-    <div class="change${isNewest ? '' : ' old'}">
-      <div class="meta">
-        <span class="first">${kindWord(f, c)}</span><span>${new Date(c.ts).toLocaleTimeString('de-DE')}</span>
-        <span class="when" data-ts="${c.ts}">${ago(c.ts)}</span>
-        <span><span class="plus">+${c.added}</span> <span class="minus">−${c.removed}</span></span>
-      </div>
+    <div class="change${isNewest ? '' : ' old'}">${meta}
       <table class="code">${rows.join('')}</table>
       ${hidden ? `<div class="more">… ${hidden} weitere Zeilen ausgeblendet</div>` : ''}
     </div>`
@@ -622,10 +800,29 @@ document.addEventListener('keydown', e => {
     if (!els.settings.hidden) toggleSettings(false)
     else goLive()
   } else if (e.key === 'v') setSetting('view', settings.view === 'editor' ? 'cards' : 'editor')
+  else if (e.key === 's') {
+    const order = ['new', 'inline', 'split']
+    setSetting('diff', order[(order.indexOf(settings.diff) + 1) % order.length])
+  }
   else if (e.key === 't') {
     const order = ['light', 'dark', 'system']
     setSetting('theme', order[(order.indexOf(settings.theme) + 1) % order.length])
   } else if (e.key === 'd' && settings.buddy) buddy.demo()
+})
+
+// Nebeneinander hängt von der Breite ab: bei Größenänderung neu zeichnen
+let resizeTimer
+let lastWide = null
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer)
+  resizeTimer = setTimeout(() => {
+    const wide = els.view.clientWidth >= SPLIT_MIN_WIDTH
+    if (settings.diff === 'split' && wide !== lastWide) {
+      renderJumpbar()
+      renderMain()
+    }
+    lastWide = wide
+  }, 150)
 })
 
 // Zeiten und Session-Punkte regelmäßig auffrischen

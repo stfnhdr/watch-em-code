@@ -24,6 +24,11 @@ Reine Ansicht – bearbeitet wird nichts. Über das Regler-Symbol oben rechts
 - **Ansicht**: *Editor* (Xcode-artig: Ordnerbaum, ganze Datei, Änderungen im Rand)
   oder *Karten* (Dateikarten mit Balken, Diff-Blöcke aller Änderungen einer Datei).
   Beide haben denselben Funktionsumfang. Taste `v`.
+- **Diff**: *Neu* (nur der neue Stand, Änderungen markiert), *Inline* (alt und neu
+  untereinander) oder *Nebeneinander* (links alt, rechts neu, Lücken schraffiert).
+  Gilt für beide Ansichten. Neue Dateien haben keinen alten Stand und werden dann
+  wie *Neu* gezeigt; ist das Fenster zu schmal (unter ca. 900 px Inhaltsbreite),
+  wird *Inline* genommen. Ein Hinweis in der Pfadzeile sagt dann Bescheid. Taste `s`.
 - **Farben**: Hell, Dunkel oder System. Taste `t`.
 - **Pixel-Junior**: an/aus.
 
