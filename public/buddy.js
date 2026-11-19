@@ -13,73 +13,92 @@ const Buddy = (() => {
   // defines its colors, a base picture (without eyes, hands and mouth) and
   // where eyes, hands and the startled mouth go.
   const CHARACTERS = {
-    // The Pixel Junior: a small original character with a beanie.
+    // The Pixel Junior: a small original character with a beanie (24×26 at 4 px).
     junior: {
       name: 'Pixel Junior',
-      colors: {
-        P: '#e8c27a', // pompom
-        h: '#d9a35a', // beanie
-        H: '#b8843f', // beanie rim
-        s: '#efc8a0', // skin
-        c: '#e3a48e', // cheeks
-        b: '#5f9e8f', // sweater
-        L: '#8d929b', // laptop
-        D: '#6b7079', // laptop base
-        g: '#d8e9e0', // logo
-        e: '#2b2b31', // eyes
-        m: '#9a5b4f', // mouth
-      },
-      base: [
-        '.........PP.........',
-        '.......hhhhhh.......',
-        '......hhhhhhhh......',
-        '.....hhhhhhhhhh.....',
-        '.....HHHHHHHHHH.....',
-        '.....ssssssssss.....',
-        '.....ssssssssss.....',
-        '.....ssssssssss.....',
-        '.....cssssssssc.....',
-        '......ssssssss......',
-        '....bbbbbbbbbbbb....',
-        '...bbbbbbbbbbbbbb...',
-        '..LLLLLLLLLLLLLLLL..',
-        '..LLLLLLLLLLLLLLLL..',
-        '..LLLLLLLgLLLLLLLL..',
-        '..DDDDDDDDDDDDDDDD..',
-      ],
-      eyes: {
-        open: [[7, 6], [7, 7], [12, 6], [12, 7]],
-        down: [[7, 7], [12, 7]],
-        left: [[6, 6], [6, 7], [11, 6], [11, 7]],
-        right: [[8, 6], [8, 7], [13, 6], [13, 7]],
-        closed: [[6, 7], [7, 7], [12, 7], [13, 7]],
-        wide: [[6, 6], [7, 6], [6, 7], [7, 7], [12, 6], [13, 6], [12, 7], [13, 7]],
-      },
-      hands: {
-        rest: [[4, 11], [5, 11], [14, 11], [15, 11]],
-        typeL: [[4, 10], [5, 10], [14, 11], [15, 11]],
-        typeR: [[4, 11], [5, 11], [14, 10], [15, 10]],
-        up: [[3, 8], [3, 9], [16, 8], [16, 9]],
-      },
-      hand: 's',
-      mouth: [[9, 9], [10, 9]],
-    },
-
-    // Werner Sauer: the team's alpaca. Rainbow wool, yellow scarf, unimpressed brows.
-    // Finer grid (26×30 at 4 px) than the junior, so he's easier to recognise.
-    werner: {
-      name: 'Werner',
-      w: 26,
-      h: 30,
+      w: 24,
+      h: 26,
       scale: 4,
       colors: {
-        o: '#4b3b33', // outline
-        q: '#c2ab96', // face outline (soft)
-        E: '#e9dcc6', // inner ears
+        P: '#e8c27a', // pompom
+        B: '#d9a35a', // beanie
+        R: '#b8843f', // beanie rim
+        Q: '#c99550', // rim ribs, fold
+        A: '#7a5236', // hair, brows
+        K: '#efc8a0', // skin
+        N: '#d9a37f', // ears
+        C: '#e3a48e', // cheeks
+        M: '#9a5b4f', // mouth
+        T: '#5f9e8f', // sweater
+        U: '#4c8476', // sweater shade
+        Y: '#7fb8a8', // collar
+        L: '#8d929b', // laptop
+        D: '#6b7079', // laptop base
+        k: '#d8e9e0', // logo
+        e: '#2b2b31', // eyes
+        m: '#7a3f36', // open mouth
+      },
+      base: [
+        '..........PPPP..........',
+        '..........PPPP..........',
+        '.........BBPPBB.........',
+        '.......BBBQBBBQBB.......',
+        '......BBBQBBBBBQBB......',
+        '.....BBBBBBBBBBBBBB.....',
+        '.....BBBBBBBBBBBBBB.....',
+        '....RQRQRQRQRQRQRQRQ....',
+        '....RQRQRQRQRQRQRQRQ....',
+        '......AAAKKKKKKAAA......',
+        '......AKKKKKKKKKKA......',
+        '......KKAAKKKKAAKK......',
+        '.....NKKKKKKKKKKKKN.....',
+        '.....NKKKKKKKKKKKKN.....',
+        '......KKKKKKKKKKKK......',
+        '......KCKKKKKKKKCK......',
+        '.......KKKKMMKKKK.......',
+        '........KKKKKKKK........',
+        '........TYKKKKYT........',
+        '......TTTYTKKTYTTT......',
+        '.....TTTTTTTTTTTTTT.....',
+        '..LLLLLLLLLLLLLLLLLLLL..',
+        '..LLLLLLLLLLLLLLLLLLLL..',
+        '..LLLLLLLLLkkLLLLLLLLL..',
+        '..LLLLLLLLLLLLLLLLLLLL..',
+        '..DDDDDDDDDDDDDDDDDDDD..',
+      ],
+      eyes: {
+        open: [[9, 12], [9, 13], [14, 12], [14, 13]],
+        down: [[9, 13], [14, 13]],
+        left: [[8, 12], [8, 13], [13, 12], [13, 13]],
+        right: [[10, 12], [10, 13], [15, 12], [15, 13]],
+        closed: [[8, 13], [9, 13], [14, 13], [15, 13]],
+        wide: [[8, 12], [9, 12], [8, 13], [9, 13], [14, 12], [15, 12], [14, 13], [15, 13]],
+      },
+      hands: {
+        rest: [[5, 20], [6, 20], [17, 20], [18, 20]],
+        typeL: [[5, 19], [6, 19], [17, 20], [18, 20]],
+        typeR: [[5, 20], [6, 20], [17, 19], [18, 19]],
+        up: [[2, 15], [2, 16], [21, 15], [21, 16]],
+      },
+      hand: 'K',
+      mouth: [[11, 16], [12, 16], [11, 17], [12, 17]],
+    },
+
+    // Werner Sauer: the team's alpaca, sitting at the laptop (28×28 at 4 px).
+    // Rainbow tuft, tall ears, yellow scarf, permanently unimpressed brows,
+    // fluffy tail peeking out behind.
+    werner: {
+      name: 'Werner',
+      w: 28,
+      h: 28,
+      scale: 4,
+      colors: {
+        o: '#4b3b33', // outline, brows
+        E: '#e9dcc6', // ears
         f: '#f1e6d2', // face
         n: '#5a463b', // nose
-        w: '#4b3b33', // brows (unimpressed)
         r: '#f3b5b5', // wool: pink
+        a: '#f6cfa8', // wool: peach
         y: '#f3ec9e', // wool: yellow
         g: '#bfe9ae', // wool: green
         c: '#a6e3df', // wool: cyan
@@ -93,56 +112,54 @@ const Buddy = (() => {
         D: '#6b7079', // laptop base
         k: '#d8e9e0', // logo
         e: '#2b2b31', // eyes
-        m: '#9a5b4f', // mouth
+        m: '#7a3f36', // open mouth
       },
       base: [
-        '........o........o........',
-        '.......oEooooooooEo.......',
-        '......ooEoygggggoEoo......',
-        '.....oyoEogggcccoEobo.....',
-        '....oygggggcccccbbbbbo....',
-        '....oggggcccccbbbbbvvo....',
-        '.....ogcccccbbbbbvvvo.....',
-        '...ooccccbbbbbvvvvvppoo...',
-        '...occcbbbbqvvqvvpppppo...',
-        '...ocbbbbbqfqvqqqppprro...',
-        '...obbbbvqfffqffqrrrrro...',
-        '...obvvvqwwffffwwqrryyo...',
-        '...ovvvvqffwffwffqyyyyo...',
-        '...ovvppqffffffffqyyyyo...',
-        '...oooppqffffffffqyyooo...',
-        '......orqffffffffqyo......',
-        '......orqqffnnffqqyo......',
-        '.....oryyyqqqqqqygggo.....',
-        '....oSSSSSSSSSSSSSSSSo....',
-        '...oysSSSSSSSSSSSSSSsco...',
-        '...oysSSSSSSSSSSSSSSsbo...',
-        '..oyyySSSggggccccbbbbbvo..',
-        '..oyygSSSgcccccbbbbbvvvo..',
-        '...oggSSSccccbbbbbvvvvo...',
-        '...oooooooooooooooooooo...',
-        '...LLLLLLLLLLLLLLLLLLLL...',
-        '...LLLLLLLLLLLLLLLLLLLL...',
-        '...LLLLLLLLLkkLLLLLLLLL...',
-        '...LLLLLLLLLLLLLLLLLLLL...',
-        '...DDDDDDDDDDDDDDDDDDDD...',
+        '.....oo..............oo.....',
+        '....oEEo............oEEo....',
+        '.....oEo............oEo.....',
+        '......oEooooo.oooo.oEo......',
+        '......oEEaaaaoaaaaoEo.......',
+        '.....oaayyyyyyyyyyyaao......',
+        '....oayyygggggggggyyyao.....',
+        '...oyyyggggvvvvvggggyyyo....',
+        '...oygggvvvoovvoovvgggyo....',
+        '...oggvvvooffooffovvvggo....',
+        '...ogvvvoooffffffoovvvgo....',
+        '...ovvvvoffooffoofovvvvo....',
+        '...ovvvofffffffffffovvvo....',
+        '...ovvvofffffffffffovvvo....',
+        '....oooofffffffffffoooo.....',
+        '........offfffffffo....ooooo',
+        '........offfffffffo...orryyo',
+        '........oofffnnffoo...orryo.',
+        '.......occoofffoobbo..orryo.',
+        '......oSSSSSoooSSSSSo.orryyo',
+        '......oSSSSSSSSSSSSSo.oooyyo',
+        '.....obbSSSbbbbvvvvvvo...oo.',
+        '....LLLLLLLLLLLLLLLLLLLL....',
+        '....LLLLLLLLLLLLLLLLLLLL....',
+        '....LLLLLLLLLkkLLLLLLLLL....',
+        '....LLLLLLLLLLLLLLLLLLLL....',
+        '....LLLLLLLLLLLLLLLLLLLL....',
+        '....DDDDDDDDDDDDDDDDDDDD....',
       ],
       eyes: {
-        open: [[10, 13], [10, 14], [15, 13], [15, 14]],
-        down: [[10, 14], [15, 14]],
-        left: [[9, 13], [9, 14], [14, 13], [14, 14]],
-        right: [[11, 13], [11, 14], [16, 13], [16, 14]],
-        closed: [[9, 14], [10, 14], [15, 14], [16, 14]],
-        wide: [[9, 12], [10, 12], [9, 13], [10, 13], [9, 14], [10, 14], [15, 12], [16, 12], [15, 13], [16, 13], [15, 14], [16, 14]],
+        open: [[11, 13], [11, 14], [16, 13], [16, 14]],
+        down: [[11, 14], [16, 14]],
+        left: [[10, 13], [10, 14], [15, 13], [15, 14]],
+        right: [[12, 13], [12, 14], [17, 13], [17, 14]],
+        closed: [[10, 14], [11, 14], [16, 14], [17, 14]],
+        wide: [[10, 13], [11, 13], [10, 14], [11, 14], [16, 13], [17, 13], [16, 14], [17, 14]],
       },
       hands: {
-        rest: [[6, 24], [7, 24], [18, 24], [19, 24]],
-        typeL: [[6, 23], [7, 23], [18, 24], [19, 24]],
-        typeR: [[6, 24], [7, 24], [18, 23], [19, 23]],
-        up: [[2, 17], [2, 18], [23, 17], [23, 18]],
+        rest: [[6, 21], [7, 21], [20, 21], [21, 21]],
+        typeL: [[6, 20], [7, 20], [20, 21], [21, 21]],
+        typeR: [[6, 21], [7, 21], [20, 20], [21, 20]],
+        up: [[2, 15], [2, 16], [25, 11], [25, 12]],
       },
       hand: 'h',
-      mouth: [[12, 16], [13, 16], [12, 15], [13, 15]],
+      mouth: [[13, 18], [14, 18]],
     },
   }
 
