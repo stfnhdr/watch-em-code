@@ -7,7 +7,7 @@ const fs = require('fs')
 const os = require('os')
 const path = require('path')
 const http = require('http')
-const { spawn, execFile } = require('child_process')
+const { spawn, execFile, execFileSync } = require('child_process')
 
 const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude')
 const PROJECTS = path.join(CLAUDE_DIR, 'projects')
@@ -99,6 +99,15 @@ function applyPatch(original, hunks) {
   return out.join('\n')
 }
 
+/**
+ * One line-ending style everywhere: CRLF/CR -> LF, no BOM. Otherwise a file
+ * whose working copy has CRLF (Windows, core.autocrlf, .gitattributes eol=crlf)
+ * differs from git's LF version in every line, and the whole file would show
+ * up as changed although only a few lines are.
+ */
+const normText = t => (typeof t === 'string' ? t.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n') : t)
+const normLine = l => String(l).replace(/\r$/, '')
+
 /** Turns a toolUseResult into a change, or null. */
 function toChange(entry, seq) {
   const r = entry && entry.toolUseResult
@@ -115,13 +124,22 @@ function toChange(entry, seq) {
         oldLines: Number(h.oldLines) || 0,
         newStart: Number(h.newStart) || 0,
         newLines: Number(h.newLines) || 0,
-        lines: h.lines.map(String),
+        lines: h.lines.map(normLine),
       }))
   }
 
-  const isCreate = r.type === 'create' || (r.originalFile === null && 'content' in r)
+  // "update" means the file existed, even if the log has no old content
+  const isCreate = r.type === 'create' || (r.type !== 'update' && r.originalFile === null && 'content' in r)
+  let needsBase = false
 
-  // New file without a patch: content as all-"+" lines.
+  // Whole-file write (Write tool) without a patch: compute the real diff from
+  // the old content instead of showing every line as added.
+  if (hunks.length === 0 && typeof r.originalFile === 'string' && typeof r.content === 'string') {
+    hunks = lineDiff(normText(r.originalFile), normText(r.content))
+    if (!hunks.length) return null // nothing actually changed
+  }
+
+  // New file (or old content unknown): content as all-"+" lines.
   if (hunks.length === 0) {
     const text =
       typeof r.content === 'string'
@@ -133,13 +151,14 @@ function toChange(entry, seq) {
             : null
     if (text === null) return null
     const lines = text === '' ? [] : text.replace(/\n$/, '').split('\n')
-    hunks = [{ oldStart: 0, oldLines: 0, newStart: 1, newLines: lines.length, lines: lines.map(l => '+' + l) }]
+    hunks = [{ oldStart: 0, oldLines: 0, newStart: 1, newLines: lines.length, lines: lines.map(l => '+' + normLine(l)) }]
+    needsBase = !isCreate // existed before: readNew diffs against the last version it knows
   }
 
   // File content after the change, for the editor view.
   let after = null
-  if (typeof r.content === 'string' && (r.type === 'create' || r.type === 'update')) after = r.content
-  else if (typeof r.originalFile === 'string' && Array.isArray(r.structuredPatch)) after = applyPatch(r.originalFile, hunks)
+  if (typeof r.content === 'string' && (r.type === 'create' || r.type === 'update')) after = normText(r.content)
+  else if (typeof r.originalFile === 'string' && Array.isArray(r.structuredPatch)) after = applyPatch(normText(r.originalFile), hunks)
   if (after !== null && after.length > MAX_AFTER) after = null
 
   let added = 0
@@ -156,6 +175,7 @@ function toChange(entry, seq) {
     filePath,
     rel: displayPath(filePath, cwd),
     kind: isCreate ? 'create' : 'update',
+    needsBase,
     hunks,
     added,
     removed,
@@ -382,7 +402,7 @@ function fillAfter(s, c) {
   if (c.after === null) {
     try {
       if (fs.statSync(c.filePath).size <= MAX_AFTER) {
-        const disk = fs.readFileSync(c.filePath, 'utf8')
+        const disk = normText(fs.readFileSync(c.filePath, 'utf8'))
         if (matches(disk, c.hunks)) c.after = disk
       }
     } catch {}
@@ -416,8 +436,32 @@ function countTools(s, entry) {
   }
 }
 
+/**
+ * The committed version of a file (git HEAD), or null. Used when a whole-file
+ * write arrives without the old content and we never saw the file before.
+ */
+function committedText(file) {
+  if (!gitVersion) return null
+  const root = repoFor(path.dirname(file))
+  if (!root) return null
+  try {
+    const rel = path.relative(root, file).split(path.sep).join('/')
+    const buf = execFileSync('git', ['--no-optional-locks', 'show', `HEAD:${rel}`], {
+      cwd: root,
+      timeout: 3000,
+      maxBuffer: MAX_AFTER + 1,
+      stdio: ['ignore', 'pipe', 'ignore'],
+      windowsHide: true,
+    })
+    if (buf.length > MAX_AFTER || buf.includes(0)) return null
+    return normText(buf.toString('utf8'))
+  } catch {
+    return null
+  }
+}
+
 /** Reads new complete lines of a log file. */
-function readNew(s, file, sink) {
+function readNew(s, file, sink, live = false) {
   let log = s.logs.get(file)
   if (!log) {
     log = { offset: 0, rest: '' }
@@ -455,6 +499,19 @@ function readNew(s, file, sink) {
       countTools(s, entry)
       const change = toChange(entry, ++seq)
       if (change) {
+        let prev = s.contents.get(change.filePath)
+        // git HEAD only for changes happening now – for old history HEAD may already be newer
+        if (change.needsBase && typeof prev !== 'string' && live) prev = committedText(change.filePath)
+        if (change.needsBase && typeof prev === 'string' && typeof change.after === 'string') {
+          change.hunks = lineDiff(prev, change.after)
+          change.added = change.removed = 0
+          for (const h of change.hunks)
+            for (const l of h.lines) {
+              if (l[0] === '+') change.added++
+              else if (l[0] === '-') change.removed++
+            }
+        }
+        delete change.needsBase
         fillAfter(s, change)
         change.repo = repoFor(path.dirname(change.filePath))
         sink.push(change)
@@ -523,7 +580,7 @@ function emitChanges(s, fresh) {
 function poll() {
   for (const s of sessions.values()) {
     const fresh = []
-    for (const file of [s.file, ...subagentLogs(s)]) readNew(s, file, fresh)
+    for (const file of [s.file, ...subagentLogs(s)]) readNew(s, file, fresh, true)
     emitChanges(s, fresh)
   }
 }
@@ -590,7 +647,7 @@ function readText(file) {
     return undefined
   }
   if (buf.length > MAX_AFTER || buf.includes(0)) return null
-  return buf.toString('utf8')
+  return normText(buf.toString('utf8'))
 }
 
 /** Version of a file in a commit: undefined = not there, null = binary or too large. */
@@ -599,7 +656,7 @@ async function textAt(root, commit, rel) {
   const buf = await git(root, ['show', `${commit}:${rel.split(path.sep).join('/')}`], 'buffer')
   if (buf === null) return undefined
   if (buf.length > MAX_AFTER || buf.includes(0)) return null
-  return buf.toString('utf8')
+  return normText(buf.toString('utf8'))
 }
 
 const same = (a, b) => typeof a === 'string' && typeof b === 'string' && a.replace(/\n$/, '') === b.replace(/\n$/, '')
