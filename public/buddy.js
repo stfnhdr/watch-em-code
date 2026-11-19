@@ -84,86 +84,96 @@ const Buddy = (() => {
       mouth: [[11, 16], [12, 16], [11, 17], [12, 17]],
     },
 
-    // Werner Sauer: the team's alpaca, sitting at the laptop (28×28 at 4 px).
-    // One big woolly mass of rainbow curls, fringe over the forehead, fat ears,
-    // yellow scarf, permanently unimpressed brows, fluffy tail peeking out behind.
+    // Werner Sauer: the team's alpaca, after the team's own pixel drawing (32×32 at 4 px).
+    // Tall ears, wavy rainbow wool with a zigzag fringe, an angry look, a long
+    // yellow scarf and a laptop seen from behind. Sparks fly while he types.
     werner: {
       name: 'Werner',
-      w: 28,
-      h: 28,
+      w: 32,
+      h: 32,
       scale: 4,
       colors: {
-        o: '#4b3b33', // outline, brows
-        E: '#e9dcc6', // ears
-        f: '#f1e6d2', // face
-        n: '#5a463b', // nose
-        r: '#f3b5b5', // wool: pink
-        a: '#f6cfa8', // wool: peach
-        y: '#f3ec9e', // wool: yellow
-        g: '#bfe9ae', // wool: green
-        c: '#a6e3df', // wool: cyan
-        b: '#a9c2f0', // wool: blue
-        v: '#c9b5f0', // wool: violet
-        p: '#f2b6dc', // wool: rose
-        S: '#f6c516', // scarf
-        s: '#d9a40c', // scarf shade
-        h: '#e9dcc6', // hooves
-        L: '#8d929b', // laptop
-        D: '#6b7079', // laptop base
+        o: '#3b2a20', // outline, brows, nose
+        f: '#f7ece0', // face, ears
+        i: '#f0c2ad', // inner ears
+        r: '#f4aeb8', // wool: pink
+        a: '#f7d4b8', // wool: peach
+        y: '#fbf4be', // wool: yellow
+        l: '#f0c6ee', // wool: rose
+        v: '#d9b3f3', // wool: lilac
+        b: '#a9bff5', // wool: blue
+        c: '#b6f5ee', // wool: mint
+        g: '#c8f5b0', // wool: green
+        S: '#f6c935', // scarf
+        s: '#d9a81e', // scarf shade
+        H: '#a8a3c4', // laptop rim
+        L: '#5e5a7a', // laptop lid
+        K: '#2e2a3a', // laptop edge
         k: '#d8e9e0', // logo
+        h: '#f7ece0', // hooves
         e: '#2b2b31', // eyes
         m: '#7a3f36', // open mouth
+        z: '#f6d64a', // sparks
       },
       base: [
-        '............................',
-        '....oo................oo....',
-        '...oEEo..............oEEo...',
-        '...oEEEo.ooooooooo..oEEEo...',
-        '....oEEEoaarararaaooEEEo....',
-        '.....ooooayrrrrryaaoooo.....',
-        '.....oyyaaarrrrraaayyo......',
-        '....oyayaaaarrraaaayayo.....',
-        '....oyyyyaaarrraaayyyyo.....',
-        '...ogayyyyaorrroayyyyago....',
-        '...ogggyooofooofoooygggo....',
-        '...ogyggofooffffoooggygo....',
-        '...ogggoffffoffofffogggo....',
-        '...ovpvofffffffffffovpvo....',
-        '....ovvofffffffffffovvvooooo',
-        '....ovgcofffffffffocgvvorryo',
-        '.....ocgoffffnnfffogcooprro.',
-        '......occoofffffoocco.oprro.',
-        '....oocccccooooocccccocorryo',
-        '....oSSSSSSSSSSSSSSSSSSooooo',
-        '...oSSSSSSSSSSSSSSSSSSSo....',
-        '....ovSSSbbbbbbcccvvvbbo....',
-        '...ovvbSSbbbbcccvvvbbbbo....',
-        '....LLLLLLLLLLLLLLLLLLLL....',
-        '....LLLLLLLLLLLLLLLLLLLL....',
-        '....LLLLLLLLLkkLLLLLLLLL....',
-        '....LLLLLLLLLLLLLLLLLLLL....',
-        '....DDDDDDDDDDDDDDDDDDDD....',
+        '................................',
+        '......ooo..........ooo..........',
+        '......offo........offo..........',
+        '......ofifo......ofifo..........',
+        '......ofifoooooooofifo..........',
+        '......ofiiorrrrrroiifo..........',
+        '.......oforrrrrrrrofo...........',
+        '.......orrrrrrrrrrrro...........',
+        '.....orrrrrrrrrrrrrrrro.........',
+        '....orraarraarraarraarro........',
+        '....oaaaaaaaaaaaaaaaaaao........',
+        '...oyaayyaayyaayyaayyaayo.......',
+        '...oyyyyyyooyyyyooyyyyyyo.......',
+        '...oyyyyyoffoyyoffoyyyyyo.......',
+        '...olyyloffffooffffolyylo.......',
+        '...ollloffffffffffffolllo.......',
+        '...ovllofooffffffoofollvo.......',
+        '...ovvvofffoffffofffovvvo.......',
+        '...obvvoffffffffffffovvbo.......',
+        '...obbbofffffoofffffobbbo.......',
+        '....obbooffffffffffoobbo........',
+        '....occcooooooooooooccco........',
+        '....ooccggggggggggggccoo........',
+        '...oSSSSSggggggggggSSSSSo.......',
+        '..oSSSHHHHHHHHHHHHHHHHHHK.......',
+        '..oSSsHLLLLLLLLLLLLLLLLLK.......',
+        '.oSSSoHLLLLLLLLLLLLLLLLLK.......',
+        '.oSsSoHLLLLLLLkkLLLLLLLLK.......',
+        '.oSSSoHLLLLLLLkLLLLLLLLLK.......',
+        '.oSSsoHLLLLLLLLLLLLLLLLLK.......',
+        '.oSoSHHLLLLLLLLLLLLLLLLLL.......',
+        '.S.SKKKKKKKKKKKKKKKKKKKKKK......',
       ],
       eyes: {
-        open: [[11, 13], [11, 14], [16, 13], [16, 14]],
-        down: [[11, 14], [16, 14]],
-        left: [[10, 13], [10, 14], [15, 13], [15, 14]],
-        right: [[12, 13], [12, 14], [17, 13], [17, 14]],
-        closed: [[10, 14], [11, 14], [16, 14], [17, 14]],
-        wide: [[10, 13], [11, 13], [10, 14], [11, 14], [16, 13], [17, 13], [16, 14], [17, 14]],
+        open: [[10, 17], [10, 18], [11, 18], [17, 17], [17, 18], [16, 18]],
+        down: [[10, 18], [11, 18], [16, 18], [17, 18]],
+        left: [[9, 17], [9, 18], [10, 18], [16, 17], [16, 18], [15, 18]],
+        right: [[11, 17], [11, 18], [12, 18], [18, 17], [18, 18], [17, 18]],
+        closed: [[9, 18], [10, 18], [11, 18], [16, 18], [17, 18], [18, 18]],
+        wide: [[10, 17], [11, 17], [10, 18], [11, 18], [16, 17], [17, 17], [16, 18], [17, 18]],
       },
       hands: {
-        rest: [[9, 22], [10, 22], [17, 22], [18, 22]],
-        typeL: [[9, 21], [10, 21], [17, 22], [18, 22]],
-        typeR: [[9, 22], [10, 22], [17, 21], [18, 21]],
-        up: [[2, 15], [2, 16], [25, 11], [25, 12]],
+        rest: [[9, 23], [10, 23], [17, 23], [18, 23]],
+        typeL: [[9, 22], [10, 22], [17, 23], [18, 23]],
+        typeR: [[9, 23], [10, 23], [17, 22], [18, 22]],
+        up: [[1, 14], [1, 15], [26, 10], [26, 11]],
       },
       hand: 'h',
-      mouth: [[13, 17], [14, 17]],
+      mouth: [[13, 20], [14, 20]],
+      // two frames, shown alternately while typing
+      sparks: [
+        [[28, 13], [27, 14], [27, 16], [28, 16], [29, 15], [28, 19], [29, 19], [30, 18]],
+        [[29, 12], [28, 13], [28, 16], [29, 16], [30, 15], [29, 19], [30, 19], [31, 18]],
+      ],
     },
   }
 
-  function svg(who, eyes, hands, mouth) {
+  function svg(who, eyes, hands, mouth, spark = -1) {
     const ch = CHARACTERS[who] || CHARACTERS.junior
     const w = ch.w || W
     const h = ch.h || H
@@ -172,6 +182,7 @@ const Buddy = (() => {
     for (const [x, y] of ch.hands[hands]) px[y][x] = ch.hand
     for (const [x, y] of ch.eyes[eyes]) px[y][x] = 'e'
     if (mouth) for (const [x, y] of ch.mouth) px[y][x] = 'm'
+    if (spark >= 0 && ch.sparks) for (const [x, y] of ch.sparks[spark % ch.sparks.length]) px[y][x] = 'z'
     let rects = ''
     for (let y = 0; y < h; y++)
       for (let x = 0; x < w; x++) {
@@ -281,7 +292,7 @@ const Buddy = (() => {
         hands = 'up'
         mouth = true
       }
-      fig.innerHTML = svg(who, eyes, hands, mouth)
+      fig.innerHTML = svg(who, eyes, hands, mouth, mode === 'typing' ? Math.floor(frame / 2) : -1)
       root.classList.toggle('sleeping', mode === 'sleep')
     }
 
@@ -379,7 +390,7 @@ const Buddy = (() => {
   }
 
   /** One frame as SVG, e.g. for previews. */
-  const sprite = (who, eyes = 'open', hands = 'rest', mouth = false) => svg(who, eyes, hands, mouth)
+  const sprite = (who, eyes = 'open', hands = 'rest', mouth = false, spark = -1) => svg(who, eyes, hands, mouth, spark)
 
   return { create, sprite, characters: Object.keys(CHARACTERS) }
 })()
