@@ -155,6 +155,14 @@ changed files against the last version it knew. Uncommitted work that was alread
 it started is left alone. Outside git repos, or in `.gitignore`d files, shell edits stay
 invisible – the agent's last alibi.
 
+**Optional – finer diffs:** shell edits show up as one change per command, while Claude's own
+file tools give you every single edit as it happens. If you'd rather watch it that way, add
+this line to your `~/.claude/CLAUDE.md` (it's a gentle hint, nothing gets blocked):
+
+```markdown
+Prefer the Edit/Write tools over shell commands (sed, echo >, heredocs, scripts) for changing files.
+```
+
 ## Options
 
 | Variable              | Effect                                |
