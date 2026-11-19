@@ -15,6 +15,8 @@
     <header class="titlebar">
       <div class="app" id="logo" title="Watch Him Code"></div>
       <nav class="sessions" id="sessions"></nav>
+      <button class="session-add" id="session-add" title="Open a session">+</button>
+      <div class="session-menu" id="session-menu" hidden></div>
       <div class="tools">
         <button class="update-pill" id="update-pill" hidden title="A new version is available"></button>
         <button class="live" id="live" title="Follow the latest change (Esc)">
@@ -80,8 +82,9 @@
       </div>
     </header>
 
-    <main class="layout">
+    <main class="layout" id="layout">
       <aside class="navigator">
+        <div class="resizer" id="resizer" title="Drag to resize · double-click to reset"></div>
         <div class="list" id="list"></div>
         <div class="buddy" id="buddy"></div>
       </aside>

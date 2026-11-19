@@ -732,11 +732,15 @@ function gitFallbackTick() {
   }
 }
 
+/** Sessions the user opened by hand ("+" in the tab bar): watched even when old. */
+const pinned = new Set()
+
 let lastPrimary = null
 function scan() {
   const now = Date.now()
   const files = listSessionFiles().sort((a, b) => b.mtime - a.mtime)
   const wanted = files.filter((f, i) => i === 0 || now - f.mtime < ACTIVE_MS).slice(0, MAX_SESSIONS)
+  for (const f of files) if (pinned.has(f.id) && !wanted.includes(f)) wanted.push(f)
   const wantedIds = new Set(wanted.map(f => f.id))
   let changed = false
 
@@ -771,6 +775,63 @@ function scan() {
     console.log(`Most active session: ${p.id}`)
     broadcast(1, 'reset', snapshotV1())
   }
+}
+
+// ---------------------------------------------------------------------------
+// Session list for the "+" menu: the most recent sessions, open or not.
+
+const LIST_MAX = 40
+const headCache = new Map() // id -> { cwd, prompt }
+
+/** Project folder and first prompt, read from the start of a log (cached). */
+function sessionHead(f) {
+  if (headCache.has(f.id)) return headCache.get(f.id)
+  const head = { cwd: '', prompt: '' }
+  let fd
+  try {
+    fd = fs.openSync(f.file, 'r')
+    const buf = Buffer.alloc(256 * 1024)
+    const n = fs.readSync(fd, buf, 0, buf.length, 0)
+    for (const line of buf.toString('utf8', 0, n).split('\n')) {
+      if (head.cwd && head.prompt) break
+      if (!line.includes('"cwd"') && !line.includes('"type":"user"')) continue
+      let e
+      try {
+        e = JSON.parse(line)
+      } catch {
+        continue
+      }
+      if (!head.cwd && typeof e.cwd === 'string') head.cwd = e.cwd
+      if (!head.prompt && e.type === 'user' && !e.isMeta && e.message) {
+        const c = e.message.content
+        const text = typeof c === 'string' ? c : Array.isArray(c) ? (c.find(x => x && x.type === 'text') || {}).text : ''
+        if (text && !text.startsWith('<') && !text.startsWith('Caveat:')) head.prompt = text.replace(/\s+/g, ' ').trim().slice(0, 90)
+      }
+    }
+  } catch {
+  } finally {
+    if (fd !== undefined) fs.closeSync(fd)
+  }
+  if (head.cwd) headCache.set(f.id, head) // retry later if the log is still empty
+  return head
+}
+
+function sessionList() {
+  return listSessionFiles()
+    .sort((a, b) => b.mtime - a.mtime)
+    .slice(0, LIST_MAX)
+    .map(f => {
+      const head = sessionHead(f)
+      return {
+        id: f.id,
+        title: sessionTitle(f),
+        project: head.cwd ? path.basename(head.cwd) : '',
+        cwd: head.cwd,
+        prompt: head.prompt,
+        active: f.mtime,
+        watched: sessions.has(f.id),
+      }
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -971,6 +1032,26 @@ const server = http.createServer((req, res) => {
 
   if (url.pathname === '/whc') {
     res.writeHead(200, { 'Content-Type': 'application/json' }).end('{"app":"watch-him-code"}')
+    return
+  }
+
+  if (url.pathname === '/sessions') {
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }).end(JSON.stringify(sessionList()))
+    return
+  }
+
+  // Open (pin) or close (unpin) a session tab. Ids are checked against the logs on disk.
+  if (url.pathname === '/open' || url.pathname === '/close') {
+    const id = url.searchParams.get('id') || ''
+    const known = /^[\w-]{1,100}$/.test(id) && listSessionFiles().some(f => f.id === id)
+    if (!known) {
+      res.writeHead(404, { 'Content-Type': 'application/json' }).end('{"ok":false}')
+      return
+    }
+    if (url.pathname === '/open') pinned.add(id)
+    else pinned.delete(id)
+    scan()
+    res.writeHead(200, { 'Content-Type': 'application/json' }).end('{"ok":true}')
     return
   }
 

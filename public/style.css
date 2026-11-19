@@ -160,13 +160,22 @@ button {
   fill: var(--logo-drop);
 }
 .sessions {
-  flex: 1;
+  flex: 0 1 auto;
   display: flex;
   align-items: flex-end;
   gap: 3px;
   padding: 0 10px;
   min-width: 0;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.sessions::-webkit-scrollbar {
+  display: none;
+}
+.sessions .session {
+  flex: 0 1 auto;
+  min-width: 110px;
 }
 /* Each session is a tab: rounded on top, the selected one merges seamlessly into the view */
 .session {
@@ -237,6 +246,127 @@ button {
 }
 .session.ping .dot {
   animation: ping 1.2s ease-out 2;
+}
+/* Close button on a tab: visible on hover and on the selected tab */
+.session {
+  padding-right: 8px;
+}
+.session .close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-left: 2px;
+  border-radius: 5px;
+  color: var(--faint);
+  font-size: 15px;
+  line-height: 1;
+  visibility: hidden;
+}
+.session:hover .close,
+.session.selected .close {
+  visibility: visible;
+}
+.session .close:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+/* "+" after the tabs */
+.session-add {
+  flex: none;
+  align-self: flex-end;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  margin: 0 auto 5px -6px;
+  border-radius: 7px;
+  color: var(--dim);
+  font-size: 18px;
+  line-height: 1;
+}
+.session-add:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+/* the list of sessions behind "+" */
+.session-menu {
+  position: fixed;
+  top: 50px;
+  z-index: 30;
+  width: 390px;
+  max-height: min(70vh, 520px);
+  overflow-y: auto;
+  padding: 6px;
+  border-radius: 12px;
+  background: var(--popover);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+.session-menu[hidden] {
+  display: none;
+}
+.session-menu .menu-head {
+  padding: 6px 10px 4px;
+  color: var(--faint);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.session-menu .menu-empty {
+  padding: 10px;
+  color: var(--faint);
+}
+.session-menu .menu-sep {
+  height: 1px;
+  margin: 6px 4px;
+  background: var(--line);
+}
+.menu-row {
+  display: grid;
+  grid-template-columns: 10px 1fr;
+  gap: 1px 10px;
+  align-items: center;
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 7px;
+  text-align: left;
+  color: var(--text);
+}
+.menu-row:hover {
+  background: var(--hover);
+}
+.menu-row .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1px solid var(--faint);
+}
+.menu-row .dot.recent {
+  background: var(--faint);
+  border-color: transparent;
+}
+.menu-row .dot.busy {
+  background: rgb(var(--add));
+  border-color: transparent;
+}
+.menu-row .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+.menu-row .meta {
+  grid-column: 2;
+  color: var(--faint);
+  font-size: 11.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.menu-row.shown .name {
+  color: var(--dim);
 }
 @keyframes pulse {
   50% {
@@ -531,13 +661,42 @@ kbd {
 .layout {
   flex: 1;
   display: grid;
-  grid-template-columns: 260px 1fr;
+  grid-template-columns: var(--nav-w, 260px) 1fr;
   min-height: 0;
 }
 .view-cards .layout {
-  grid-template-columns: minmax(250px, 310px) 1fr;
+  grid-template-columns: var(--nav-w, 290px) 1fr;
+}
+/* Drag handle on the right edge of the file tree */
+.resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -4px;
+  width: 8px;
+  z-index: 6;
+  cursor: col-resize;
+}
+.resizer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 2px;
+  background: transparent;
+  transition: background 0.15s;
+}
+.resizer:hover::after,
+body.resizing .resizer::after {
+  background: rgba(var(--mod), 0.6);
+}
+body.resizing {
+  cursor: col-resize;
+  user-select: none;
 }
 .navigator {
+  position: relative;
   display: flex;
   flex-direction: column;
   background: var(--side);

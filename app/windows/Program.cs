@@ -173,6 +173,9 @@ namespace WatchHimCode
                 var open = Regex.Match(json, "\"open\"\\s*:\\s*\"(https://[^\"]+)\"");
                 if (open.Success)
                     try { Process.Start(new ProcessStartInfo(open.Groups[1].Value) { UseShellExecute = true }); } catch { }
+                // Double-click on the page's title bar: maximize / restore
+                if (json.Contains("\"titlebar\""))
+                    WindowState = WindowState == FormWindowState.Maximized ? FormWindowState.Normal : FormWindowState.Maximized;
                 // "Install & restart" clicked
                 var update = Regex.Match(json, "\"update\"\\s*:\\s*\\{[^}]*\"url\"\\s*:\\s*\"(https://[^\"]+)\"");
                 if (update.Success) _ = InstallUpdateAsync(update.Groups[1].Value);

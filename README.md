@@ -90,7 +90,9 @@ You need **Node.js 18+**. That's it. That's the list.
 
 Grab the ready-made apps from the **[latest release](https://github.com/stfnhdr/watch-him-code/releases/latest)**:
 
-- **macOS** (Apple Silicon + Intel): `WatchHimCode-macOS.zip` – unzip, drag into Applications.
+- **macOS** (Apple Silicon + Intel): `WatchHimCode-macOS.dmg` – open it, drag the app onto
+  *Applications*, start it from there. (Starting it straight out of Downloads makes macOS run a
+  temporary copy that can crash once you move the app.)
   The app isn't notarized by Apple, so the first launch gets blocked. Go to *System Settings →
   Privacy & Security* and click *Open Anyway*. Or, if you like terminals:
   `xattr -dr com.apple.quarantine "/Applications/Watch Him Code.app"`
@@ -191,10 +193,10 @@ Prefer the Edit/Write tools over shell commands (sed, echo >, heredocs, scripts)
 | `WHC_UPDATE_CHECK=0`  | Don't check GitHub for new versions   |
 
 **Releasing:** bump the version in `server.js` (`VERSION`), `app/macos/Info.plist` and
-`app/windows/WatchHimCode.csproj`, build both apps, zip the Mac app
-(`ditto -c -k --keepParent "dist/Watch Him Code.app" dist/WatchHimCode-macOS.zip`) and attach
-`WatchHimCode-macOS.zip` and `WatchHimCode-windows.zip` to a GitHub release tagged `vX.Y.Z`.
-The asset names must stay exactly like that – the updater looks for them.
+`app/windows/WatchHimCode.csproj`, run both build scripts and attach `WatchHimCode-macOS.dmg`,
+`WatchHimCode-macOS.zip` and `WatchHimCode-windows.zip` from `dist/` to a GitHub release tagged
+`vX.Y.Z`. The DMG is for people, the two ZIPs are what the updater downloads – keep their
+names exactly like that.
 
 ## Project layout
 

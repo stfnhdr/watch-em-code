@@ -84,6 +84,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         if let update = body["update"] as? [String: Any], let link = update["url"] as? String {
             installUpdate(link)
         }
+        if body["titlebar"] as? String == "dblclick" { titlebarDoubleClick() }
+    }
+
+    /** Double-click on the page's title bar: do what the system setting says. */
+    func titlebarDoubleClick() {
+        let action = UserDefaults.standard.string(forKey: "AppleActionOnDoubleClick") ?? "Maximize"
+        switch action {
+        case "Minimize": window.miniaturize(nil)
+        case "None": break
+        default: window.zoom(nil)
+        }
     }
 
     // MARK: Update (only when the user clicks "Install & restart")

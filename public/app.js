@@ -23,6 +23,9 @@ const els = {
   settings: $('settings'),
   statusBtn: $('status-btn'),
   updatePill: $('update-pill'),
+  sessionMenu: $('session-menu'),
+  layout: $('layout'),
+  resizer: $('resizer'),
   status: $('status'),
   toast: $('toast'),
   buddy: $('buddy'),
@@ -95,6 +98,7 @@ els.settingsBtn.addEventListener('click', e => {
 document.addEventListener('click', e => {
   if (!els.settings.hidden && !els.settings.parentNode.contains(e.target)) toggleSettings(false)
   if (!els.status.hidden && !els.status.parentNode.contains(e.target)) toggleStatus(false)
+  if (!els.sessionMenu.hidden && !els.sessionMenu.contains(e.target)) els.sessionMenu.hidden = true
 })
 
 // ---------------------------------------------------------------------------
@@ -311,9 +315,105 @@ function label(info) {
   return info.title || info.project || info.id.slice(0, 8)
 }
 
+// ---------------------------------------------------------------------------
+// Tabs: closing hides a session until it gets busy again; "+" opens older ones.
+
+/** id -> time the tab was closed */
+const closedTabs = new Map()
+/** sessions opened by hand via "+" (the server watches them even when old) */
+let pinnedTabs = []
+try {
+  for (const [id, t] of JSON.parse(localStorage.getItem('whc.closedTabs') || '[]')) closedTabs.set(id, t)
+  pinnedTabs = JSON.parse(localStorage.getItem('whc.pinnedTabs') || '[]')
+} catch {}
+function saveTabs() {
+  try {
+    localStorage.setItem('whc.closedTabs', JSON.stringify([...closedTabs].slice(-200)))
+    localStorage.setItem('whc.pinnedTabs', JSON.stringify(pinnedTabs))
+  } catch {}
+}
+
+/** Is the tab shown? A closed session comes back as soon as it continues. */
+function tabOpen(s) {
+  const closedAt = closedTabs.get(s.info.id)
+  if (closedAt === undefined) return true
+  const activity = Math.max(s.info.active || 0, s.last ? s.last.ts : 0)
+  if (activity > closedAt + 2000) {
+    closedTabs.delete(s.info.id)
+    saveTabs()
+    return true
+  }
+  return false
+}
+const openSessions = () => [...sessions.values()].filter(tabOpen)
+
+function closeTab(id) {
+  if (id === Demo.ID) {
+    Demo.toggle()
+    return
+  }
+  closedTabs.set(id, Date.now())
+  if (pinnedTabs.includes(id)) {
+    pinnedTabs = pinnedTabs.filter(x => x !== id)
+    fetch(`/close?id=${encodeURIComponent(id)}`).catch(() => {})
+  }
+  saveTabs()
+  if (sessionId === id) {
+    sessionId = pickDefaultSession()
+    follow = true
+    selected = cur()?.last?.filePath ?? null
+    els.list.innerHTML = ''
+  }
+  renderAll()
+}
+
+let pendingSelect = null // opened via "+", waiting for the server to send it
+
+/** Nothing (open) selected but a tab is there again? Select it. */
+function ensureSelection() {
+  if (cur() && tabOpen(cur())) return
+  const id = pickDefaultSession()
+  if (id && id !== sessionId) selectTab(id)
+}
+function selectTab(id) {
+  sessionId = id
+  follow = true
+  selected = cur()?.last?.filePath ?? null
+  els.list.innerHTML = ''
+  renderAll()
+}
+
+async function openTab(id) {
+  closedTabs.delete(id)
+  saveTabs()
+  if (sessions.has(id)) {
+    selectTab(id)
+    return
+  }
+  if (!pinnedTabs.includes(id)) pinnedTabs.push(id)
+  saveTabs()
+  pendingSelect = id
+  try {
+    await fetch(`/open?id=${encodeURIComponent(id)}`)
+  } catch {}
+}
+
+/** After (re)connecting: ask the server to watch the tabs opened by hand again. */
+function restorePinned() {
+  for (const id of pinnedTabs)
+    fetch(`/open?id=${encodeURIComponent(id)}`)
+      .then(r => {
+        if (r.status === 404) {
+          pinnedTabs = pinnedTabs.filter(x => x !== id)
+          saveTabs()
+        }
+      })
+      .catch(() => {})
+}
+
 function pickDefaultSession() {
   let best = null
-  for (const s of sessions.values()) {
+  for (const s of openSessions()) {
     const t = s.last ? s.last.ts : 0
     const bt = best ? (best.last ? best.last.ts : 0) : -1
     if (t > bt || (t === bt && s.info.active > best.info.active)) best = s
@@ -369,8 +469,9 @@ const folderIcon = `<svg class="icon" width="15" height="12" viewBox="0 0 15 12"
 
 function renderSessions(pingId) {
   const now = Date.now()
-  const list = [...sessions.values()].sort((a, b) => a.info.id.localeCompare(b.info.id))
-  els.sessions.innerHTML = list
+  const list = openSessions().sort((a, b) => a.info.id.localeCompare(b.info.id))
+  els.sessions.innerHTML =
+    list
     .map(s => {
       const lastTs = s.last ? s.last.ts : 0
       const cls = [
@@ -384,19 +485,77 @@ function renderSessions(pingId) {
         .filter(Boolean)
         .join('\n')
       const proj = s.info.title && s.info.project ? `<span class="proj">${esc(s.info.project)}</span>` : ''
-      return `<button class="${cls}" data-id="${s.info.id}" title="${esc(title)}"><span class="dot"></span><span class="label">${esc(label(s.info))}</span>${proj}</button>`
+      return (
+        `<button class="${cls}" data-id="${esc(s.info.id)}" title="${esc(title)}"><span class="dot"></span>` +
+        `<span class="label">${esc(label(s.info))}</span>${proj}` +
+        `<span class="close" data-close="${esc(s.info.id)}" title="Close tab – it comes back when the session continues">×</span></button>`
+      )
     })
     .join('')
+  els.sessions.querySelector('.selected')?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
 }
+document.getElementById('session-add').addEventListener('click', e => {
+  e.stopPropagation()
+  toggleSessionMenu()
+})
 
 els.sessions.addEventListener('click', e => {
+  const x = e.target.closest('[data-close]')
+  if (x) {
+    e.stopPropagation()
+    closeTab(x.dataset.close)
+    return
+  }
   const b = e.target.closest('.session')
-  if (!b) return
-  sessionId = b.dataset.id
-  follow = true
-  selected = cur()?.last?.filePath ?? null
-  els.list.innerHTML = ''
-  renderAll()
+  if (b) selectTab(b.dataset.id)
+})
+// middle click closes a tab, like in a browser
+els.sessions.addEventListener('auxclick', e => {
+  const b = e.target.closest('.session')
+  if (b && e.button === 1) closeTab(b.dataset.id)
+})
+
+// "+" menu: recent sessions, open or not
+async function toggleSessionMenu(open = els.sessionMenu.hidden) {
+  els.sessionMenu.hidden = !open
+  if (!open) return
+  toggleSettings(false)
+  toggleStatus(false)
+  const btn = document.getElementById('session-add')
+  if (btn) {
+    const r = btn.getBoundingClientRect()
+    els.sessionMenu.style.left = `${Math.max(8, Math.min(r.left, window.innerWidth - 400))}px`
+  }
+  els.sessionMenu.innerHTML = `<div class="menu-empty">Loading …</div>`
+  let list = []
+  try {
+    list = await (await fetch('/sessions', { cache: 'no-store' })).json()
+  } catch {}
+  const now = Date.now()
+  const rows = list.map(x => {
+    const s = sessions.get(x.id)
+    const shown = s && tabOpen(s)
+    const name = x.title || x.prompt || x.id.slice(0, 8)
+    const state = now - x.active < 120000 ? 'busy' : now - x.active < 30 * 60000 ? 'recent' : ''
+    return (
+      `<button class="menu-row ${shown ? 'shown' : ''}" data-open="${esc(x.id)}" title="${esc(x.cwd)}">` +
+      `<span class="dot ${state}"></span><span class="name">${esc(name)}</span>` +
+      `<span class="meta">${esc(x.project)} · ${ago(x.active)}${shown ? ' · open' : ''}</span></button>`
+    )
+  })
+  els.sessionMenu.innerHTML =
+    `<div class="menu-head">Recent sessions</div>` +
+    (rows.length ? rows.join('') : `<div class="menu-empty">No sessions found.</div>`) +
+    `<div class="menu-sep"></div><button class="menu-row demo" data-open="${Demo.ID}"><span class="dot"></span><span class="name">Demo session</span><span class="meta">a made-up session to show the app</span></button>`
+}
+els.sessionMenu.addEventListener('click', e => {
+  const r = e.target.closest('[data-open]')
+  if (!r) return
+  toggleSessionMenu(false)
+  if (r.dataset.open === Demo.ID) {
+    if (sessions.has(Demo.ID)) selectTab(Demo.ID)
+    else Demo.toggle()
+  } else openTab(r.dataset.open)
 })
 
 function renderLive() {
@@ -985,7 +1144,8 @@ els.live.addEventListener('click', goLive)
 document.addEventListener('keydown', e => {
   if (e.metaKey || e.ctrlKey || e.altKey) return
   if (e.key === 'Escape') {
-    if (!els.settings.hidden) toggleSettings(false)
+    if (!els.sessionMenu.hidden) els.sessionMenu.hidden = true
+    else if (!els.settings.hidden) toggleSettings(false)
     else if (!els.status.hidden) toggleStatus(false)
     else goLive()
   } else if (e.key === 'v') setSetting('view', settings.view === 'editor' ? 'cards' : 'editor')
@@ -998,6 +1158,51 @@ document.addEventListener('keydown', e => {
     setSetting('theme', order[(order.indexOf(settings.theme) + 1) % order.length])
   } else if (e.key === 'd') Demo.toggle()
   else if (e.key === 'i') toggleStatus()
+})
+
+// File tree width: drag the edge, double-click resets. Remembered per browser.
+const NAV_MIN = 180
+function setNavWidth(px) {
+  if (px === null) els.layout.style.removeProperty('--nav-w')
+  else els.layout.style.setProperty('--nav-w', `${px}px`)
+}
+try {
+  const w = Number(localStorage.getItem('whc.navWidth'))
+  if (w >= NAV_MIN) setNavWidth(w)
+} catch {}
+els.resizer.addEventListener('pointerdown', e => {
+  e.preventDefault()
+  els.resizer.setPointerCapture(e.pointerId)
+  document.body.classList.add('resizing')
+  const left = els.layout.getBoundingClientRect().left
+  const move = ev => {
+    const max = Math.min(720, window.innerWidth * 0.6)
+    setNavWidth(Math.round(Math.max(NAV_MIN, Math.min(max, ev.clientX - left))))
+  }
+  const up = () => {
+    document.body.classList.remove('resizing')
+    els.resizer.removeEventListener('pointermove', move)
+    els.resizer.removeEventListener('pointerup', up)
+    try {
+      localStorage.setItem('whc.navWidth', parseInt(els.layout.style.getPropertyValue('--nav-w')) || '')
+    } catch {}
+    window.dispatchEvent(new Event('resize')) // side by side depends on the width
+  }
+  els.resizer.addEventListener('pointermove', move)
+  els.resizer.addEventListener('pointerup', up)
+})
+els.resizer.addEventListener('dblclick', () => {
+  setNavWidth(null)
+  try {
+    localStorage.removeItem('whc.navWidth')
+  } catch {}
+  window.dispatchEvent(new Event('resize'))
+})
+
+// Double-click on an empty spot of the title bar behaves like the native one (Mac/Windows app).
+document.querySelector('.titlebar').addEventListener('dblclick', e => {
+  if (e.target.closest('button, .session, .settings-wrap, .session-menu, a')) return
+  if (host) host({ titlebar: 'dblclick' })
 })
 
 // Side by side depends on the width: redraw on resize
@@ -1036,6 +1241,7 @@ const events = new EventSource('/events?v=2')
 events.addEventListener('open', () => {
   connected = true
   renderLive()
+  restorePinned()
 })
 events.addEventListener('error', () => {
   connected = false
@@ -1054,7 +1260,11 @@ events.addEventListener('reset', e => {
   sessions = next
   repos = new Map((snap.repos || []).map(r => [r.root, r]))
   Demo.keep(sessions, repos) // the demo tab survives server resets
-  if (!sessions.has(sessionId)) {
+  if (pendingSelect && sessions.has(pendingSelect)) {
+    sessionId = pendingSelect
+    pendingSelect = null
+    follow = true
+  } else if (!sessions.has(sessionId) || !tabOpen(cur())) {
     sessionId = pickDefaultSession()
     follow = true
   }
@@ -1082,6 +1292,7 @@ events.addEventListener('session', e => {
   else sessions.set(info.id, newSession(info))
   renderSessions()
   if (info.id === sessionId) renderJumpbar()
+  ensureSelection()
 })
 
 events.addEventListener('change', e => {

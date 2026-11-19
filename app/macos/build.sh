@@ -32,4 +32,24 @@ iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
 echo "• Signing locally (ad hoc) …"
 codesign --force --deep -s - "$APP" >/dev/null
 
+# ZIP: what the in-app updater downloads (keep this name, the updater looks for it)
+echo "• Creating ZIP …"
+ZIP="$ROOT/dist/WatchHimCode-macOS.zip"
+rm -f "$ZIP"
+(cd "$ROOT/dist" && ditto -c -k --sequesterRsrc --keepParent "Watch Him Code.app" "$(basename "$ZIP")")
+
+# DMG: for people – open it, drag the app onto "Applications", done.
+# Starting it from Applications (not from Downloads) also avoids macOS running
+# it from a temporary, read-only copy ("App Translocation").
+echo "• Creating DMG …"
+DMG="$ROOT/dist/WatchHimCode-macOS.dmg"
+STAGE="$TMP/dmg"
+mkdir -p "$STAGE"
+ditto "$APP" "$STAGE/Watch Him Code.app"
+ln -s /Applications "$STAGE/Applications"
+rm -f "$DMG"
+hdiutil create -volname "Watch Him Code" -srcfolder "$STAGE" -fs HFS+ -format UDZO -ov "$DMG" >/dev/null
+
 echo "Done: $APP"
+echo "      $ZIP"
+echo "      $DMG"
