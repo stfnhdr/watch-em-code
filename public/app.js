@@ -21,6 +21,8 @@ const els = {
   liveLabel: $('live-label'),
   settingsBtn: $('settings-btn'),
   settings: $('settings'),
+  statusBtn: $('status-btn'),
+  status: $('status'),
   toast: $('toast'),
   buddy: $('buddy'),
 }
@@ -82,14 +84,96 @@ els.settings.addEventListener('click', e => {
 function toggleSettings(open = els.settings.hidden) {
   els.settings.hidden = !open
   els.settingsBtn.classList.toggle('open', open)
+  if (open) toggleStatus(false)
 }
 els.settingsBtn.addEventListener('click', e => {
   e.stopPropagation()
   toggleSettings()
 })
 document.addEventListener('click', e => {
-  if (!els.settings.hidden && !e.target.closest('.settings-wrap')) toggleSettings(false)
+  if (!els.settings.hidden && !els.settings.parentNode.contains(e.target)) toggleSettings(false)
+  if (!els.status.hidden && !els.status.parentNode.contains(e.target)) toggleStatus(false)
 })
+
+// ---------------------------------------------------------------------------
+// Status: does this machine have everything it needs? Opens by itself at
+// start when something is wrong.
+
+let statusTimer = null
+let statusChecked = false
+
+function toggleStatus(open = els.status.hidden) {
+  els.status.hidden = !open
+  els.statusBtn.classList.toggle('open', open)
+  clearInterval(statusTimer)
+  if (open) {
+    toggleSettings(false)
+    loadStatus()
+    statusTimer = setInterval(loadStatus, 3000)
+  }
+}
+els.statusBtn.addEventListener('click', e => {
+  e.stopPropagation()
+  toggleStatus()
+})
+
+const STATUS_TEXT = {
+  ok: 'Everything Watch Him Code needs is in place.',
+  idle: 'All set – waiting for an active session.',
+  warn: 'It works, but something limits what you see.',
+  fail: 'Something is missing – nothing can be shown yet.',
+}
+
+function checkHtml(c) {
+  return (
+    `<div class="check ${c.state}"><span class="mark"></span><span class="what">${esc(c.label)}</span>` +
+    `<span class="detail">${esc(c.detail)}</span>` +
+    (c.fix && c.state !== 'ok' ? `<span class="fix">${esc(c.fix)}</span>` : '') +
+    `</div>`
+  )
+}
+
+function renderStatus(r) {
+  els.statusBtn.dataset.state = r.state
+  els.statusBtn.title = 'Status – ' + STATUS_TEXT[r.state]
+  if (els.status.hidden) return
+  let html = `<h4>Status</h4><div class="summary">${STATUS_TEXT[r.state]}</div>`
+  html += r.checks.map(checkHtml).join('')
+  for (const s of r.sessions) html += `<div class="group">${esc(s.name)}</div>` + s.items.map(checkHtml).join('')
+  html += `<div class="foot">Updates every few seconds while open.</div>`
+  els.status.innerHTML = html
+}
+
+function statusOffline() {
+  return {
+    state: 'fail',
+    checks: [
+      {
+        label: 'Server',
+        state: 'fail',
+        detail: 'No connection to the Watch Him Code server',
+        fix: 'Restart the app, or run `node server.js` in a terminal.',
+      },
+    ],
+    sessions: [],
+  }
+}
+
+async function loadStatus() {
+  let r
+  try {
+    const res = await fetch('/status', { cache: 'no-store' })
+    r = await res.json()
+  } catch {
+    r = statusOffline()
+  }
+  // First check after start: open by itself if something needs attention.
+  if (!statusChecked) {
+    statusChecked = true
+    if (r.state === 'warn' || r.state === 'fail') toggleStatus(true)
+  }
+  renderStatus(r)
+}
 
 // ---------------------------------------------------------------------------
 // State
@@ -164,7 +248,11 @@ function ago(ts) {
   return new Date(ts).toLocaleDateString()
 }
 
-const kindWord = (f, c) => (c.kind === 'create' && f.changes[0] === c ? 'created' : 'modified')
+const kindWord = (f, c) =>
+  c.source === 'git-deleted' ? 'deleted' : c.kind === 'create' && f.changes[0] === c ? 'created' : 'modified'
+// Changes found through git (shell commands, scripts, MCP tools) instead of the log.
+const viaGit = c => !!c && typeof c.source === 'string' && c.source.startsWith('git')
+const GIT_TIP = 'Changed outside the Edit/Write tools (shell, script or MCP tool) – picked up through git'
 
 const ICON_COLORS = {
   js: '#d6b35a', mjs: '#d6b35a', cjs: '#d6b35a', jsx: '#d6b35a',
@@ -366,7 +454,10 @@ function branchHtml(s, f) {
 
 function hintHtml(c) {
   const { note } = diffMode(c)
-  return note ? `<span class="hint">${esc(note)}</span>` : ''
+  return (
+    (viaGit(c) ? `<span class="hint" title="${GIT_TIP}">via shell</span>` : '') +
+    (note ? `<span class="hint">${esc(note)}</span>` : '')
+  )
 }
 
 function renderJumpbar() {
@@ -692,7 +783,7 @@ function changeHtml(c, f, isNewest, animate) {
   const { mode } = diffMode(c)
   const meta = `
       <div class="meta">
-        <span class="first">${kindWord(f, c)}</span><span>${new Date(c.ts).toLocaleTimeString()}</span>
+        <span class="first">${kindWord(f, c)}</span>${viaGit(c) ? `<span class="via" title="${GIT_TIP}">via shell</span>` : ''}<span>${new Date(c.ts).toLocaleTimeString()}</span>
         <span class="when" data-ts="${c.ts}">${ago(c.ts)}</span>
         <span><span class="plus">+${c.added}</span> <span class="minus">−${c.removed}</span></span>
       </div>`
@@ -803,6 +894,7 @@ document.addEventListener('keydown', e => {
   if (e.metaKey || e.ctrlKey || e.altKey) return
   if (e.key === 'Escape') {
     if (!els.settings.hidden) toggleSettings(false)
+    else if (!els.status.hidden) toggleStatus(false)
     else goLive()
   } else if (e.key === 'v') setSetting('view', settings.view === 'editor' ? 'cards' : 'editor')
   else if (e.key === 's') {
@@ -813,6 +905,7 @@ document.addEventListener('keydown', e => {
     const order = ['light', 'dark', 'system']
     setSetting('theme', order[(order.indexOf(settings.theme) + 1) % order.length])
   } else if (e.key === 'd' && settings.buddy) buddy.demo()
+  else if (e.key === 'i') toggleStatus()
 })
 
 // Side by side depends on the width: redraw on resize
@@ -839,6 +932,9 @@ setInterval(() => {
 $('logo').innerHTML = PixelLogo.svg('Watch Him Code', { cell: 3, edge: 1, drop: 2 })
 const buddy = Buddy.create(els.buddy)
 applySettings()
+// Check at start (opens the panel if needed), then keep the badge current.
+setTimeout(loadStatus, 1500)
+setInterval(() => els.status.hidden && loadStatus(), 15000)
 
 // ---------------------------------------------------------------------------
 // Live connection

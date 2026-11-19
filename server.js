@@ -7,9 +7,10 @@ const fs = require('fs')
 const os = require('os')
 const path = require('path')
 const http = require('http')
-const { spawn } = require('child_process')
+const { spawn, execFile } = require('child_process')
 
-const PROJECTS = path.join(os.homedir(), '.claude', 'projects')
+const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude')
+const PROJECTS = path.join(CLAUDE_DIR, 'projects')
 const HOST = '127.0.0.1'
 const START_PORT = Number(process.env.WHC_PORT) || 4777
 const POLL_MS = 600 // read new lines
@@ -242,6 +243,86 @@ function checkRepos() {
 }
 
 // ---------------------------------------------------------------------------
+// Line diff, for changes found through git (those have no patch in the log).
+// Returns hunks in the same format as Claude Code's structuredPatch.
+
+const toLines = t => (t === '' ? [] : t.replace(/\n$/, '').split('\n'))
+
+function lcsOps(A, B) {
+  const n = A.length
+  const m = B.length
+  const w = m + 1
+  const t = new Uint32Array((n + 1) * w)
+  for (let i = n - 1; i >= 0; i--)
+    for (let j = m - 1; j >= 0; j--)
+      t[i * w + j] = A[i] === B[j] ? t[(i + 1) * w + j + 1] + 1 : Math.max(t[(i + 1) * w + j], t[i * w + j + 1])
+  const ops = []
+  let i = 0
+  let j = 0
+  while (i < n && j < m) {
+    if (A[i] === B[j]) {
+      ops.push([' ', A[i++]])
+      j++
+    } else if (t[(i + 1) * w + j] >= t[i * w + j + 1]) ops.push(['-', A[i++]])
+    else ops.push(['+', B[j++]])
+  }
+  while (i < n) ops.push(['-', A[i++]])
+  while (j < m) ops.push(['+', B[j++]])
+  return ops
+}
+
+function lineDiff(before, after, ctx = 3) {
+  const a = toLines(before)
+  const b = toLines(after)
+  let pre = 0
+  while (pre < a.length && pre < b.length && a[pre] === b[pre]) pre++
+  let suf = 0
+  while (suf < a.length - pre && suf < b.length - pre && a[a.length - 1 - suf] === b[b.length - 1 - suf]) suf++
+  const A = a.slice(pre, a.length - suf)
+  const B = b.slice(pre, b.length - suf)
+  // Very large middle parts: show as replaced block instead of an expensive LCS.
+  const mid = A.length * B.length > 4e6 ? [...A.map(l => ['-', l]), ...B.map(l => ['+', l])] : lcsOps(A, B)
+  const ops = [...a.slice(0, pre).map(l => [' ', l]), ...mid, ...a.slice(a.length - suf).map(l => [' ', l])]
+
+  const oldNo = []
+  const newNo = []
+  let o = 1
+  let nn = 1
+  for (const op of ops) {
+    oldNo.push(o)
+    newNo.push(nn)
+    if (op[0] !== '+') o++
+    if (op[0] !== '-') nn++
+  }
+  const changed = []
+  ops.forEach((op, k) => op[0] !== ' ' && changed.push(k))
+  const hunks = []
+  for (let g = 0; g < changed.length; g++) {
+    const first = changed[g]
+    let last = first
+    while (g + 1 < changed.length && changed[g + 1] - last <= 2 * ctx + 1) last = changed[++g]
+    const from = Math.max(0, first - ctx)
+    const to = Math.min(ops.length - 1, last + ctx)
+    const lines = []
+    let ol = 0
+    let nl = 0
+    for (let k = from; k <= to; k++) {
+      lines.push(ops[k][0] + ops[k][1])
+      if (ops[k][0] !== '+') ol++
+      if (ops[k][0] !== '-') nl++
+    }
+    hunks.push({
+      oldStart: ol ? oldNo[from] : oldNo[from] - 1,
+      oldLines: ol,
+      newStart: nl ? newNo[from] : newNo[from] - 1,
+      newLines: nl,
+      lines,
+    })
+  }
+  return hunks
+}
+
+// ---------------------------------------------------------------------------
 // Watched sessions
 
 let seq = 0
@@ -249,7 +330,17 @@ let seq = 0
 const sessions = new Map()
 
 function addSession(info) {
-  const s = { ...info, cwd: '', title: sessionTitle(info), changes: [], logs: new Map(), contents: new Map() }
+  const s = {
+    ...info,
+    cwd: '',
+    title: sessionTitle(info),
+    changes: [],
+    logs: new Map(),
+    contents: new Map(),
+    tools: { edit: 0, shell: 0, mcp: 0 }, // tool calls seen, for the status view
+    // git fallback: repo root -> { head, dirty: Set<rel>, ready }
+    git: { repos: new Map(), roots: [], found: 0, busy: false, wanted: true, last: 0, count: 0 },
+  }
   sessions.set(s.id, s)
   const fresh = []
   for (const file of [s.file, ...subagentLogs(s)]) readNew(s, file, fresh)
@@ -297,6 +388,31 @@ function fillAfter(s, c) {
   else s.contents.delete(c.filePath)
 }
 
+/**
+ * Counts the agent's tool calls. Only Edit/Write/NotebookEdit leave a diff in
+ * the log; files changed through the shell or MCP tools stay invisible.
+ */
+const EDIT_TOOLS = new Set(['Edit', 'MultiEdit', 'Write', 'NotebookEdit'])
+// Shell commands that probably write files (a heuristic, not a parser).
+const SHELL_WRITE =
+  /\bsed\s+(-\w*\s+)*-i|\bperl\s+(-\w*\s+)*-\w*i|\btee\b|<<-?\s*['"]?\w|(^|[^\d&2])>{1,2}\s*(?!\/dev\/null|&)[\w./~$"']|\bgit\s+(apply|am|checkout\s+--|restore)\b|\bpatch\b|\b(mv|cp|rm|touch|truncate)\s|Set-Content|Out-File|Add-Content/
+// MCP tools whose name sounds like changing something and that get a file path.
+const MCP_WRITE = /write|update|edit|create|replace|patch|insert|move|\bmv\b|delete|rm$|remove|save/i
+const hasPathArg = input =>
+  !!input && typeof input === 'object' && Object.keys(input).some(k => /^(file_?path|path|file_?name|source_?path|target_?path|uri)$/i.test(k))
+function countTools(s, entry) {
+  const content = entry.message && entry.message.content
+  if (entry.type !== 'assistant' || !Array.isArray(content)) return
+  for (const c of content) {
+    if (!c || c.type !== 'tool_use' || typeof c.name !== 'string') continue
+    if (EDIT_TOOLS.has(c.name)) s.tools.edit++
+    else if (c.name === 'Bash' || c.name === 'PowerShell') {
+      const cmd = c.input && typeof c.input.command === 'string' ? c.input.command : ''
+      if (SHELL_WRITE.test(cmd)) s.tools.shell++
+    } else if (c.name.startsWith('mcp__') && MCP_WRITE.test(c.name.split('__').pop()) && hasPathArg(c.input)) s.tools.mcp++
+  }
+}
+
 /** Reads new complete lines of a log file. */
 function readNew(s, file, sink) {
   let log = s.logs.get(file)
@@ -333,12 +449,13 @@ function readNew(s, file, sink) {
         continue
       }
       if (typeof entry.cwd === 'string' && (!entry.isSidechain || !s.cwd)) s.cwd = entry.cwd
+      countTools(s, entry)
       const change = toChange(entry, ++seq)
       if (change) {
         fillAfter(s, change)
         change.repo = repoFor(path.dirname(change.filePath))
         sink.push(change)
-      }
+      } else if (entry.toolUseResult) s.git.wanted = true // a tool finished that may have changed files
     }
   } finally {
     fs.closeSync(fd)
@@ -389,18 +506,226 @@ function snapshotV1() {
   }
 }
 
+function emitChanges(s, fresh) {
+  if (!fresh.length) return
+  fresh.sort((a, b) => a.ts - b.ts)
+  for (const c of fresh) {
+    s.changes.push(c)
+    broadcast(2, 'change', { sessionId: s.id, change: c })
+    if (primary() === s) broadcast(1, 'change', { ...c, after: undefined })
+  }
+  broadcast(2, 'session', sessionInfo(s))
+}
+
 function poll() {
   for (const s of sessions.values()) {
     const fresh = []
     for (const file of [s.file, ...subagentLogs(s)]) readNew(s, file, fresh)
-    if (!fresh.length) continue
-    fresh.sort((a, b) => a.ts - b.ts)
-    for (const c of fresh) {
-      s.changes.push(c)
-      broadcast(2, 'change', { sessionId: s.id, change: c })
-      if (primary() === s) broadcast(1, 'change', { ...c, after: undefined })
+    emitChanges(s, fresh)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Git fallback: files the agent changes through shell commands, scripts or MCP
+// tools leave no diff in the log. For those we ask git which files changed in
+// the session's repos and diff them against the last version we know.
+// The first scan of a repo only records its state (existing uncommitted work
+// is not shown as the agent's change).
+
+const GIT_ENABLED = process.env.WHC_GIT !== '0'
+const GIT_IDLE_MS = 8000 // rescan this often while a session is busy
+const GIT_BUSY_MS = 3 * 60 * 1000 // ... i.e. had log activity this recently
+const GIT_SETTLE_MS = 1200 // files younger than this: wait, an Edit may not be logged yet
+const GIT_MAX_REPOS = 25
+const SKIP_DIRS = new Set(['node_modules', 'Pods', 'DerivedData', 'build', 'dist', 'target', 'vendor', 'venv', 'Carthage'])
+let gitVersion = null // null: unknown yet, '': not available
+
+function git(cwd, args, encoding = 'utf8') {
+  return new Promise(resolve => {
+    execFile('git', ['--no-optional-locks', ...args], { cwd, encoding, maxBuffer: 64 * 1024 * 1024, timeout: 10000, windowsHide: true }, (err, out) =>
+      resolve(err ? null : out),
+    )
+  })
+}
+
+function checkGit() {
+  if (!GIT_ENABLED) return
+  execFile('git', ['--version'], { timeout: 5000, windowsHide: true }, (err, out) => {
+    gitVersion = err ? '' : String(out).trim().replace(/^git version\s*/, '')
+  })
+}
+
+/** The session's repo plus nested repos below its folder (e.g. a master repo with subrepos). */
+function findRepos(cwd) {
+  const out = new Set()
+  const top = repoFor(cwd)
+  if (top) out.add(top)
+  if (cwd === os.homedir() || path.dirname(cwd) === cwd) return [...out] // too broad to search
+  const walk = (dir, depth) => {
+    if (depth > 3 || out.size >= GIT_MAX_REPOS) return
+    let entries
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true })
+    } catch {
+      return
     }
-    broadcast(2, 'session', sessionInfo(s))
+    if (depth > 0 && entries.some(e => e.name === '.git') && repoFor(dir) === dir) out.add(dir)
+    for (const e of entries)
+      if (e.isDirectory() && !e.name.startsWith('.') && !SKIP_DIRS.has(e.name)) walk(path.join(dir, e.name), depth + 1)
+  }
+  walk(cwd, 0)
+  return [...out]
+}
+
+/** File content as text: undefined = missing, null = binary or too large. */
+function readText(file) {
+  let buf
+  try {
+    if (!fs.statSync(file).isFile()) return undefined
+    buf = fs.readFileSync(file)
+  } catch {
+    return undefined
+  }
+  if (buf.length > MAX_AFTER || buf.includes(0)) return null
+  return buf.toString('utf8')
+}
+
+/** Version of a file in a commit: undefined = not there, null = binary or too large. */
+async function textAt(root, commit, rel) {
+  if (!commit) return undefined
+  const buf = await git(root, ['show', `${commit}:${rel.split(path.sep).join('/')}`], 'buffer')
+  if (buf === null) return undefined
+  if (buf.length > MAX_AFTER || buf.includes(0)) return null
+  return buf.toString('utf8')
+}
+
+const same = (a, b) => typeof a === 'string' && typeof b === 'string' && a.replace(/\n$/, '') === b.replace(/\n$/, '')
+
+async function scanRepo(s, root, sink) {
+  let st = s.git.repos.get(root)
+  if (!st) s.git.repos.set(root, (st = { head: '', dirty: new Set(), ready: false }))
+  const status = await git(root, ['status', '--porcelain=v1', '-z', '--untracked-files=all'])
+  if (status === null) return
+  const head = ((await git(root, ['rev-parse', '--verify', '-q', 'HEAD'])) || '').trim()
+
+  const dirty = new Set()
+  const parts = status.split('\0')
+  for (let i = 0; i < parts.length; i++) {
+    const p = parts[i]
+    if (p.length < 4) continue
+    if (p[0] === 'R' || p[0] === 'C') i++ // the next field is the old name
+    const rel = p.slice(3)
+    if (!rel.endsWith('/')) dirty.add(rel) // "dir/" = nested repo, not a file
+  }
+
+  // Files to look at: dirty now, dirty before (maybe reverted), or touched by a new commit.
+  const look = new Set([...dirty, ...st.dirty])
+  if (st.ready && st.head && head && st.head !== head) {
+    const d = await git(root, ['diff', '--name-only', '-z', st.head, head])
+    if (d) for (const rel of d.split('\0')) if (rel) look.add(rel)
+  }
+
+  const now = Date.now()
+  for (const rel of look) {
+    const file = path.join(root, rel)
+    if (!st.ready) {
+      if (dirty.has(rel)) s.contents.set(file, readText(file) ?? null) // baseline only
+      continue
+    }
+    let mtime = 0
+    try {
+      mtime = fs.statSync(file).mtimeMs
+    } catch {}
+    if (mtime && now - mtime < GIT_SETTLE_MS) {
+      dirty.add(rel) // check again next round
+      s.git.wanted = true
+      continue
+    }
+    const after = readText(file)
+    const known = s.contents.has(file)
+    let before = known ? s.contents.get(file) : await textAt(root, st.head || head, rel)
+    if (!known && s.changes.some(c => c.filePath === file)) {
+      // Edited through the log already, but without a known version: just remember it.
+      s.contents.set(file, after ?? null)
+      continue
+    }
+    if (before === null || after === null) {
+      s.contents.set(file, after ?? null) // binary or too large: nothing to show
+      continue
+    }
+    if (before === undefined && after === undefined) continue
+    if (same(before, after) || (before === undefined && after === '')) {
+      if (after !== undefined) s.contents.set(file, after)
+      continue
+    }
+    const hunks = lineDiff(before ?? '', after ?? '')
+    if (!hunks.length) continue
+    let added = 0
+    let removed = 0
+    for (const h of hunks)
+      for (const l of h.lines) {
+        if (l[0] === '+') added++
+        else if (l[0] === '-') removed++
+      }
+    sink.push({
+      id: ++seq,
+      filePath: file,
+      rel: displayPath(file, s.cwd),
+      kind: before === undefined ? 'create' : 'update',
+      hunks,
+      added,
+      removed,
+      after: after ?? '',
+      ts: mtime || now,
+      repo: root,
+      source: after === undefined ? 'git-deleted' : 'git',
+    })
+    if (after === undefined) s.contents.delete(file)
+    else s.contents.set(file, after)
+    s.git.count++
+  }
+  st.dirty = dirty
+  st.head = head
+  st.ready = true
+}
+
+async function gitScan(s, roots) {
+  s.git.busy = true
+  try {
+    const fresh = []
+    for (const root of roots) await scanRepo(s, root, fresh)
+    emitChanges(s, fresh)
+  } catch (e) {
+    console.error('git scan failed:', e.message)
+  } finally {
+    s.git.busy = false
+    s.git.last = Date.now()
+  }
+}
+
+function gitFallbackTick() {
+  if (!gitVersion) return
+  const now = Date.now()
+  // Find each session's repos now and then; a repo belongs to the most recently active session.
+  const owner = new Map()
+  for (const s of [...sessions.values()].sort((a, b) => a.mtime - b.mtime)) {
+    if (!s.cwd || now - s.mtime >= ACTIVE_MS) continue
+    if (now - s.git.found > 60000) {
+      s.git.roots = findRepos(s.cwd)
+      s.git.found = now
+    }
+    for (const r of s.git.roots) owner.set(r, s)
+  }
+  for (const s of sessions.values()) {
+    if (s.git.busy || !s.cwd) continue
+    const roots = s.git.roots.filter(r => owner.get(r) === s)
+    if (!roots.length) continue
+    const fresh = roots.some(r => !(s.git.repos.get(r) || {}).ready)
+    const busy = now - s.mtime < GIT_BUSY_MS && now - s.git.last > GIT_IDLE_MS
+    if (s.git.wanted || fresh || busy) {
+      s.git.wanted = false
+      gitScan(s, roots)
+    }
   }
 }
 
@@ -446,6 +771,128 @@ function scan() {
 }
 
 // ---------------------------------------------------------------------------
+// Status: does this machine have everything Watch Him Code needs?
+// state: ok | warn | fail | idle (nothing wrong, just nothing to show yet)
+
+const home = p => displayPath(p, '')
+
+function statusReport() {
+  const checks = []
+  const add = (label, state, detail, fix) => checks.push({ label, state, detail, fix: fix || '' })
+  const now = Date.now()
+
+  const major = Number(process.versions.node.split('.')[0])
+  add('Node.js', major >= 18 ? 'ok' : 'fail', `Version ${process.versions.node}`, major >= 18 ? '' : 'Install Node.js 18 or newer from nodejs.org.')
+
+  // The only hard requirement: read access to Claude Code's session logs.
+  let logsOk = false
+  try {
+    fs.readdirSync(PROJECTS)
+    logsOk = true
+    add('Claude Code logs', 'ok', home(PROJECTS))
+  } catch (e) {
+    const missing = e.code === 'ENOENT'
+    add(
+      'Claude Code logs',
+      'fail',
+      missing ? `${home(PROJECTS)} does not exist` : `${home(PROJECTS)} is not readable (${e.code})`,
+      missing
+        ? 'Run Claude Code at least once with this user account. If you use CLAUDE_CONFIG_DIR, start Watch Him Code with the same variable.'
+        : 'Give your user read access to this folder.',
+    )
+  }
+
+  if (!GIT_ENABLED) add('git', 'idle', 'Turned off (WHC_GIT=0) – only Edit/Write changes are shown')
+  else if (gitVersion === '')
+    add(
+      'git',
+      'warn',
+      'Not found – only Edit/Write changes are shown',
+      process.platform === 'darwin'
+        ? 'Install git (e.g. run `xcode-select --install` in Terminal) so changes made through shell commands show up too.'
+        : 'Install git from git-scm.com so changes made through shell commands show up too.',
+    )
+  else if (gitVersion) add('git', 'ok', `Version ${gitVersion} – also picks up shell and script edits`)
+
+  if (logsOk) {
+    const files = listSessionFiles()
+    const active = files.filter(f => now - f.mtime < ACTIVE_MS).length
+    if (!files.length) add('Sessions', 'fail', 'No session logs found yet', 'Start a Claude Code session on this machine.')
+    else if (!active) add('Sessions', 'idle', `${files.length} logs, none active in the last 30 minutes`, 'Start or continue a Claude Code session – it shows up automatically.')
+    else add('Sessions', 'ok', `${active} active, ${files.length} in total`)
+  }
+
+  // Per watched session: can we read its project, and does the agent edit in a visible way?
+  const app = process.env.WHC_PARENT_PID ? 'Watch Him Code' : 'your terminal app'
+  const list = []
+  for (const s of [...sessions.values()].sort((a, b) => b.mtime - a.mtime)) {
+    if (now - s.mtime >= ACTIVE_MS) continue
+    const name = s.title || (s.cwd ? path.basename(s.cwd) : s.id.slice(0, 8))
+    const items = []
+    const item = (label, state, detail, fix) => items.push({ label, state, detail, fix: fix || '' })
+
+    if (!s.cwd) item('Project folder', 'idle', 'Not known yet')
+    else
+      try {
+        fs.readdirSync(s.cwd)
+        item('Project folder', 'ok', home(s.cwd))
+      } catch (e) {
+        if (e.code === 'EPERM' || e.code === 'EACCES')
+          item(
+            'Project folder',
+            'warn',
+            `${home(s.cwd)}: access denied by the system`,
+            process.platform === 'darwin'
+              ? `System Settings → Privacy & Security → Files and Folders (or Full Disk Access) → allow ${app}. Without it, branch names and some full-file views are missing; diffs still work.`
+              : 'Give your user read access to this folder.',
+          )
+        else item('Project folder', 'warn', `${home(s.cwd)} not found on this machine (remote or deleted?)`, 'Branch names and full-file views need the project on this machine.')
+      }
+
+    const roots = new Set([...s.git.roots, ...s.changes.map(c => c.repo).filter(Boolean)])
+    const names = [...roots].map(r => path.basename(r))
+    if (roots.size)
+      item('Git repos', 'ok', roots.size > 1 ? `${roots.size} watched: ${names.join(', ')}` : names[0])
+    else item('Git repos', 'idle', 'No git repo found – branch names and shell edits are not shown')
+
+    const t = s.tools
+    const hidden = t.shell + t.mcp
+    const viaLog = s.changes.length - s.git.count
+    const gitCovers = !!gitVersion && s.git.roots.length > 0
+    if (gitCovers)
+      item(
+        'Visible edits',
+        s.changes.length ? 'ok' : 'idle',
+        `${viaLog} via Edit/Write · ${s.git.count} found by git (shell, scripts, MCP)`,
+      )
+    else if (s.changes.length)
+      item(
+        'Visible edits',
+        hidden > 2 * t.edit && hidden > 10 ? 'warn' : 'ok',
+        `${s.changes.length} via Edit/Write` + (hidden ? ` · ~${hidden} likely file writes via shell/MCP` : ''),
+        hidden > 2 * t.edit && hidden > 10 ? 'Files changed through shell commands or MCP tools are only picked up inside git repos.' : '',
+      )
+    else if (hidden >= 3)
+      item(
+        'Visible edits',
+        'warn',
+        `None via Edit/Write, but ~${hidden} likely file writes via shell/MCP`,
+        gitVersion
+          ? 'The agent changes files through shell commands or MCP tools. Those are picked up through git – but this project is not a git repo. Ask the agent to use its Edit/Write tools.'
+          : 'The agent changes files through shell commands or MCP tools. Install git so Watch Him Code can pick those up, or ask the agent to use its Edit/Write tools.',
+      )
+    else item('Visible edits', 'idle', 'No edits yet')
+
+    list.push({ id: s.id, name, items })
+  }
+
+  const rank = { ok: 0, idle: 1, warn: 2, fail: 3 }
+  const all = [...checks, ...list.flatMap(s => s.items)]
+  const worst = all.reduce((w, c) => (rank[c.state] > rank[w] ? c.state : w), 'ok')
+  return { state: worst, checks, sessions: list, platform: process.platform }
+}
+
+// ---------------------------------------------------------------------------
 // HTTP + Server-Sent Events
 
 const clients = new Set() // { res, v }
@@ -471,6 +918,11 @@ const server = http.createServer((req, res) => {
 
   if (url.pathname === '/whc') {
     res.writeHead(200, { 'Content-Type': 'application/json' }).end('{"app":"watch-him-code"}')
+    return
+  }
+
+  if (url.pathname === '/status') {
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }).end(JSON.stringify(statusReport()))
     return
   }
 
@@ -628,6 +1080,8 @@ function listen(port) {
     scan()
     setInterval(poll, POLL_MS)
     setInterval(scan, SCAN_MS)
+    checkGit()
+    setInterval(gitFallbackTick, 1000)
     // Started by the Mac/Windows app: exit together with it
     const parent = Number(process.env.WHC_PARENT_PID) || 0
     if (parent)
@@ -643,4 +1097,4 @@ function listen(port) {
 }
 
 if (require.main === module) listen(START_PORT)
-else module.exports = { applyPatch, toChange }
+else module.exports = { applyPatch, toChange, lineDiff }
