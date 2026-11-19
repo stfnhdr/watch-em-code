@@ -99,7 +99,10 @@ els.settings.addEventListener('input', e => {
 function toggleSettings(open = els.settings.hidden) {
   els.settings.hidden = !open
   els.settingsBtn.classList.toggle('open', open)
-  if (open) toggleStatus(false)
+  if (open) {
+    toggleStatus(false)
+    loadStatus() // fresh version line
+  }
 }
 els.settingsBtn.addEventListener('click', e => {
   e.stopPropagation()
@@ -227,11 +230,45 @@ els.status.addEventListener('click', e => {
   }
 })
 
+/** Version line at the bottom of the settings, with "Check now". */
+function renderAbout(u, checking = false) {
+  const el = document.getElementById('about-version')
+  const btn = document.getElementById('check-update')
+  const box = document.getElementById('about')
+  box.classList.toggle('newer', !!(u && u.available))
+  btn.disabled = checking
+  if (!u) {
+    el.textContent = 'Watch Him Code'
+    btn.textContent = 'Check now'
+    return
+  }
+  const v = `Watch Him Code ${u.current}`
+  if (checking) el.textContent = `${v} · checking …`
+  else if (!u.enabled) el.textContent = `${v} · update check off`
+  else if (u.available) el.textContent = `${v} · ${u.latest} available`
+  else if (u.error) el.textContent = `${v} · couldn't check`
+  else if (u.latest) el.textContent = `${v} · up to date`
+  else el.textContent = v
+  btn.textContent = u.available ? 'Update' : 'Check now'
+  btn.hidden = !u.enabled
+}
+document.getElementById('check-update').addEventListener('click', async e => {
+  e.stopPropagation()
+  if (updateInfo && updateInfo.available) return toggleStatus(true) // shows the install box
+  renderAbout(updateInfo, true)
+  try {
+    updateInfo = await (await fetch('/check-update', { cache: 'no-store' })).json()
+  } catch {}
+  renderAbout(updateInfo)
+  renderUpdatePill(updateInfo)
+})
+
 function renderStatus(r) {
   els.statusBtn.dataset.state = r.state
   els.statusBtn.title = 'Status – ' + STATUS_TEXT[r.state]
   updateInfo = r.update || null
   renderUpdatePill(updateInfo)
+  renderAbout(updateInfo)
   if (els.status.hidden) return
   let html = `<h4>Status</h4><div class="summary">${STATUS_TEXT[r.state]}</div>` + updateBoxHtml()
   html += r.checks.map(checkHtml).join('')

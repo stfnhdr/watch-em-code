@@ -518,6 +518,28 @@ button {
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
+.about {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  color: var(--dim);
+  font-size: 12px;
+}
+.about .link {
+  margin: 0;
+  font-size: 12px;
+}
+.about .link:disabled {
+  color: var(--faint);
+  text-decoration: none;
+  cursor: default;
+}
+.about.newer #about-version {
+  color: rgb(var(--add));
+}
 .keys {
   padding-top: 10px;
   border-top: 1px solid var(--line);

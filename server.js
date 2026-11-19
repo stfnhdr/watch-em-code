@@ -1245,6 +1245,13 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // "Check now" in the settings: ask GitHub right away (at most every 10 s)
+  if (url.pathname === '/check-update') {
+    const run = Date.now() - update.checked > 10000 ? checkUpdate() : Promise.resolve()
+    run.then(() => res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }).end(JSON.stringify(updateInfo())))
+    return
+  }
+
   if (url.pathname === '/status') {
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }).end(JSON.stringify(statusReport()))
     return
