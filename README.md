@@ -11,8 +11,18 @@ Historie.
 node server.js
 ```
 
-Der Browser öffnet sich automatisch unter `http://127.0.0.1:4777`
-(ist der Port belegt, wird der nächste freie genommen). Beenden mit `Strg+C`.
+Es öffnet sich ein **eigenes App-Fenster** (ohne Adressleiste und Tabs) unter
+`http://127.0.0.1:4777`. Dafür wird Chrome, Edge, Brave oder Chromium im App-Modus
+(`--app=…`) gestartet; ist keiner davon installiert, öffnet sich der Standardbrowser.
+Unter Windows ist Edge immer vorhanden.
+
+Läuft Watch Him Code schon, öffnet ein zweiter Start nur ein weiteres Fenster und keinen
+zweiten Server. Ist der Port von etwas anderem belegt, wird der nächste freie genommen.
+Beenden mit `Strg+C`.
+
+**Als App installieren (optional):** Im App-Fenster oder in Chrome/Edge über das Menü
+„Installieren“ bzw. „Als App installieren“. Dann liegt Watch Him Code mit dem Pixel-Junior
+als Symbol im Launchpad bzw. Startmenü (der Server muss dafür laufen).
 
 Voraussetzung: Node.js 18 oder neuer. Keine `npm install` nötig.
 
@@ -82,7 +92,8 @@ Der Server lauscht nur auf `127.0.0.1`, ist also von außen nicht erreichbar.
 | Variable       | Wirkung                          |
 | -------------- | -------------------------------- |
 | `WHC_PORT`     | anderer Startport (Standard 4777) |
-| `WHC_NO_OPEN=1`| Browser nicht automatisch öffnen |
+| `WHC_NO_OPEN=1`| kein Fenster öffnen |
+| `WHC_BROWSER=default` | Standardbrowser statt App-Fenster |
 
 ## Dateien
 
@@ -91,5 +102,6 @@ Der Server lauscht nur auf `127.0.0.1`, ist also von außen nicht erreichbar.
 - `public/app.js` – Live-Logik, Sessions, Navigator, Code-Ansicht
 - `public/buddy.js` – der Pixel-Junior
 - `public/logo.js` – das Pixel-Logo (eigene 5×7-Buchstaben als SVG)
+- `public/manifest.webmanifest`, `icon*.png`, `icon.svg` – App-Symbol und Web-App-Angaben
 - `public/base/` – eingefrorene Basis-Ansicht
 - `public/highlight.js` – kleiner eigener Syntax-Highlighter

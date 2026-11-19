@@ -461,11 +461,18 @@ const TYPES = {
   '.js': 'text/javascript; charset=utf-8',
   '.svg': 'image/svg+xml',
   '.woff2': 'font/woff2',
+  '.png': 'image/png',
+  '.webmanifest': 'application/manifest+json',
   '.txt': 'text/plain; charset=utf-8',
 }
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://localhost')
+
+  if (url.pathname === '/whc') {
+    res.writeHead(200, { 'Content-Type': 'application/json' }).end('{"app":"watch-him-code"}')
+    return
+  }
 
   if (url.pathname === '/events') {
     const v = url.searchParams.get('v') === '2' ? 2 : 1
@@ -511,8 +518,54 @@ setInterval(() => {
   for (const c of clients) c.res.write(': ping\n\n')
 }, 20000).unref()
 
+// ---------------------------------------------------------------------------
+// Fenster öffnen: wenn möglich als eigenes App-Fenster (Chrome, Edge, Brave,
+// Chromium im --app-Modus, ohne Adressleiste und Tabs), sonst im Standardbrowser.
+
+const exists = p => {
+  try {
+    fs.statSync(p)
+    return true
+  } catch {
+    return false
+  }
+}
+
+function findAppBrowser() {
+  if (process.platform === 'darwin') {
+    const names = ['Google Chrome', 'Microsoft Edge', 'Brave Browser', 'Chromium']
+    for (const dir of ['/Applications', path.join(os.homedir(), 'Applications')])
+      for (const n of names) {
+        const p = path.join(dir, n + '.app')
+        if (exists(p)) return { mac: p }
+      }
+  } else if (process.platform === 'win32') {
+    const env = process.env
+    const candidates = [
+      [env.ProgramFiles, 'Google\\Chrome\\Application\\chrome.exe'],
+      [env['ProgramFiles(x86)'], 'Google\\Chrome\\Application\\chrome.exe'],
+      [env.LOCALAPPDATA, 'Google\\Chrome\\Application\\chrome.exe'],
+      [env['ProgramFiles(x86)'], 'Microsoft\\Edge\\Application\\msedge.exe'],
+      [env.ProgramFiles, 'Microsoft\\Edge\\Application\\msedge.exe'],
+      [env.ProgramFiles, 'BraveSoftware\\Brave-Browser\\Application\\brave.exe'],
+    ]
+    for (const [base, rel] of candidates) {
+      if (!base) continue
+      const p = path.join(base, rel)
+      if (exists(p)) return { exe: p }
+    }
+  } else {
+    const names = ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser', 'microsoft-edge', 'brave-browser']
+    for (const n of names)
+      for (const dir of (process.env.PATH || '').split(path.delimiter)) {
+        const p = path.join(dir, n)
+        if (exists(p)) return { exe: p }
+      }
+  }
+  return null
+}
+
 function openBrowser(url) {
-  if (process.env.WHC_NO_OPEN) return
   const cmd =
     process.platform === 'darwin'
       ? ['open', [url]]
@@ -524,9 +577,49 @@ function openBrowser(url) {
   } catch {}
 }
 
+function openWindow(url) {
+  if (process.env.WHC_NO_OPEN) return
+  const b = process.env.WHC_BROWSER === 'default' ? null : findAppBrowser()
+  const args = [`--app=${url}`, '--window-size=1400,900']
+  try {
+    if (b && b.mac) {
+      spawn('open', ['-na', b.mac, '--args', ...args], { stdio: 'ignore', detached: true }).unref()
+      return
+    }
+    if (b && b.exe) {
+      spawn(b.exe, args, { stdio: 'ignore', detached: true }).unref()
+      return
+    }
+  } catch {}
+  openBrowser(url)
+}
+
+/** Läuft auf diesem Port schon Watch Him Code? */
+function isOurs(port) {
+  return new Promise(resolve => {
+    const req = http.get({ host: HOST, port, path: '/whc', timeout: 800 }, res => {
+      let body = ''
+      res.on('data', c => (body += c))
+      res.on('end', () => resolve(body.includes('watch-him-code')))
+    })
+    req.on('error', () => resolve(false))
+    req.on('timeout', () => {
+      req.destroy()
+      resolve(false)
+    })
+  })
+}
+
 function listen(port) {
-  server.once('error', err => {
-    if (err.code === 'EADDRINUSE' && port < START_PORT + 20) listen(port + 1)
+  server.once('error', async err => {
+    if (err.code !== 'EADDRINUSE') throw err
+    if (await isOurs(port)) {
+      // Schon gestartet: nur ein Fenster öffnen, keinen zweiten Server.
+      const url = `http://${HOST}:${port}`
+      console.log(`Watch Him Code läuft schon auf ${url} – öffne nur das Fenster.`)
+      openWindow(url)
+      setTimeout(() => process.exit(0), 300)
+    } else if (port < START_PORT + 20) listen(port + 1)
     else throw err
   })
   server.listen(port, HOST, () => {
@@ -535,7 +628,7 @@ function listen(port) {
     scan()
     setInterval(poll, POLL_MS)
     setInterval(scan, SCAN_MS)
-    openBrowser(url)
+    openWindow(url)
   })
 }
 
