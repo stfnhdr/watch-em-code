@@ -55,10 +55,13 @@ const darkQuery = matchMedia('(prefers-color-scheme: dark)')
 function applyTheme() {
   const t = settings.theme === 'system' ? (darkQuery.matches ? 'dark' : 'light') : settings.theme
   document.documentElement.dataset.theme = t
-  // In the Mac/Windows app: tint the window title bar to match
+  // In the Mac/Windows app: tint the window title bar to match. `system` tells
+  // the app not to pin the window to light/dark – otherwise the page would read
+  // the pinned window colour instead of the system's from then on.
+  const msg = { theme: t, system: settings.theme === 'system' }
   try {
-    window.webkit?.messageHandlers?.whc?.postMessage({ theme: t })
-    window.chrome?.webview?.postMessage({ theme: t })
+    window.webkit?.messageHandlers?.whc?.postMessage(msg)
+    window.chrome?.webview?.postMessage(msg)
   } catch {}
 }
 darkQuery.addEventListener('change', applyTheme)

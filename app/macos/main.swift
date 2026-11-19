@@ -157,23 +157,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         window.titlebarAppearsTransparent = true
         window.minSize = NSSize(width: 720, height: 460)
         window.contentView = webView
-        applyTheme(NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? "dark" : "light")
+        applyTheme(NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? "dark" : "light", followSystem: true)
         window.center()
         window.setFrameAutosaveName("WatchHimCodeMain") // remember size and position
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    /** Match title bar and background to the page's theme. */
-    func applyTheme(_ theme: String) {
+    /**
+     * Match title bar and background to the page's theme. With "System" the
+     * window follows macOS (appearance = nil): pinning it would make the page's
+     * prefers-color-scheme report the pinned colour instead of the system's.
+     */
+    func applyTheme(_ theme: String, followSystem: Bool) {
         let dark = theme == "dark"
-        window.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+        window.appearance = followSystem ? nil : NSAppearance(named: dark ? .darkAqua : .aqua)
         window.backgroundColor = dark ? darkBar : lightBar
     }
 
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
         guard let body = message.body as? [String: Any] else { return }
-        if let theme = body["theme"] as? String { applyTheme(theme) }
+        if let theme = body["theme"] as? String { applyTheme(theme, followSystem: body["system"] as? Bool ?? false) }
         if body["ready"] as? Bool == true {
             pageReady = true
             watchdog?.invalidate()
