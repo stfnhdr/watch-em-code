@@ -1,3 +1,5 @@
 node_modules/
 .DS_Store
 dist/
+app/windows/bin/
+app/windows/obj/

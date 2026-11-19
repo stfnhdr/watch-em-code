@@ -44,6 +44,27 @@ installiert sein; die App findet es wie das Terminal (Login-Shell) oder an den �
 Orten (Homebrew, nvm, Volta). Server und Oberfläche werden beim Bauen in die App kopiert –
 nach Änderungen am Code also neu bauen.
 
+## Windows-App
+
+Gleiches Prinzip wie auf dem Mac: `WatchHimCode.exe` startet den Server unsichtbar,
+zeigt die Oberfläche in einem eigenen Fenster (WebView2, die Edge-Technik) und beendet
+den Server beim Schließen. Basis ist .NET Framework 4.8 – in Windows 10/11 eingebaut,
+es muss nichts zusätzlich installiert werden außer Node.js. Die WebView2-Runtime ist bei
+Windows 11 und aktuellen Windows-10-Versionen dabei; fehlt sie, bietet die App den
+Download an.
+
+Bauen (geht auch auf dem Mac, braucht das .NET SDK):
+
+```bash
+./app/windows/build.sh
+```
+
+Ergebnis: `dist/WatchHimCode-windows.zip` (ca. 360 KB). Auf dem Windows-Rechner entpacken
+und `WatchHimCode.exe` doppelklicken; für Startmenü oder Taskleiste eine Verknüpfung
+anlegen. Beim ersten Start meldet Windows SmartScreen eventuell „Unbekannter
+Herausgeber“ → „Weitere Informationen“ → „Trotzdem ausführen“ (die App ist nicht
+signiert).
+
 ## Bedienung
 
 Reine Ansicht – bearbeitet wird nichts. Über das Regler-Symbol oben rechts
@@ -120,6 +141,7 @@ Der Server lauscht nur auf `127.0.0.1`, ist also von außen nicht erreichbar.
 - `public/app.js` – Live-Logik, Sessions, Navigator, Code-Ansicht
 - `public/buddy.js` – der Pixel-Junior
 - `public/logo.js` – das Pixel-Logo (eigene 5×7-Buchstaben als SVG)
+- `app/windows/` – Windows-App: `Program.cs` (Fenster + Serverstart), Projekt, Symbol, `build.sh`
 - `app/macos/` – Mac-App: `main.swift` (Fenster + Serverstart), `Info.plist`, Symbol, `build.sh`
 - `public/manifest.webmanifest`, `icon*.png`, `icon.svg` – App-Symbol und Web-App-Angaben
 - `public/base/` – eingefrorene Basis-Ansicht

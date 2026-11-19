@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Schlanke Windows-App: .NET Framework 4.8 ist in Windows 10/11 eingebaut,
+       die Oberfläche läuft in WebView2 (Edge-Technik, ebenfalls vorinstalliert). -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <AssemblyName>WatchHimCode</AssemblyName>
+    <RootNamespace>WatchHimCode</RootNamespace>
+    <ApplicationIcon>AppIcon.ico</ApplicationIcon>
+    <PlatformTarget>x64</PlatformTarget>
+    <Product>Watch Him Code</Product>
+    <AssemblyTitle>Watch Him Code</AssemblyTitle>
+    <Version>0.1.0</Version>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="System.Net.Http" />
+  </ItemGroup>
+</Project>
