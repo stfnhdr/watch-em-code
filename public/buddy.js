@@ -93,27 +93,27 @@ const Buddy = (() => {
       h: 32,
       scale: 4,
       colors: {
-        o: '#3b2a20', // outline, brows, nose
-        f: '#f7ece0', // face, ears
-        i: '#f0c2ad', // inner ears
-        r: '#f4aeb8', // wool: pink
-        a: '#f7d4b8', // wool: peach
-        y: '#fbf4be', // wool: yellow
-        l: '#f0c6ee', // wool: rose
-        v: '#d9b3f3', // wool: lilac
-        b: '#a9bff5', // wool: blue
-        c: '#b6f5ee', // wool: mint
-        g: '#c8f5b0', // wool: green
-        S: '#f6c935', // scarf
-        s: '#d9a81e', // scarf shade
-        H: '#a8a3c4', // laptop rim
-        L: '#5e5a7a', // laptop lid
-        K: '#2e2a3a', // laptop edge
-        k: '#d8e9e0', // logo
-        h: '#f7ece0', // hooves
+        o: '#49351D', // outline, brows, nose
+        f: '#F0E8D5', // face, ears
+        i: '#F6B3BA', // inner ears
+        r: '#F2B0B3', // wool: pink
+        a: '#F4D8B4', // wool: peach
+        y: '#F3F4B2', // wool: yellow
+        l: '#F1BAEA', // wool: rose
+        v: '#ADA8EA', // wool: violet
+        b: '#9AC8ED', // wool: blue
+        c: '#A4EFE4', // wool: mint
+        g: '#B1EFA9', // wool: green
+        S: '#FFDA00', // scarf
+        s: '#D9A900', // scarf shade
+        H: '#87849D', // laptop rim
+        L: '#53516C', // laptop lid
+        K: '#292638', // laptop edge
+        k: '#B7B5C5', // logo
+        h: '#F0E8D5', // hooves
         e: '#2b2b31', // eyes
         m: '#7a3f36', // open mouth
-        z: '#f6d64a', // sparks
+        z: '#FFDA00', // sparks
       },
       base: [
         '................................',
