@@ -76,6 +76,19 @@ Off. He won't take it personally. (He will.)
 
 You need **Node.js 18+**. That's it. That's the list.
 
+### Download
+
+Grab the ready-made apps from the **[latest release](https://github.com/stfnhdr/watch-him-code/releases/latest)**:
+
+- **macOS** (Apple Silicon + Intel): `WatchHimCode-macOS.zip` – unzip, drag into Applications.
+  The app isn't notarized by Apple, so the first launch gets blocked. Go to *System Settings →
+  Privacy & Security* and click *Open Anyway*. Or, if you like terminals:
+  `xattr -dr com.apple.quarantine "/Applications/Watch Him Code.app"`
+- **Windows** (10/11, x64): `WatchHimCode-windows.zip` – unzip, run `WatchHimCode.exe`.
+  SmartScreen will complain, see below.
+
+Prefer to build it yourself? Read on.
+
 ### Mac
 
 ```bash
