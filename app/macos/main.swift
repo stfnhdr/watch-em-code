@@ -17,7 +17,88 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMenu()
         buildWindow()
+        if offerMoveToApplications() { return } // moving and restarting
         DispatchQueue.global(qos: .userInitiated).async { self.start() }
+    }
+
+    // MARK: Running from Downloads or a disk image?
+
+    /// macOS runs apps that were started straight out of Downloads from a hidden,
+    /// read-only copy ("App Translocation"). That copy can vanish while the app runs
+    /// (crash) and can't be updated. Same for an app started inside the DMG.
+    /// Offer to move it to Applications and restart from there.
+    func offerMoveToApplications() -> Bool {
+        let current = Bundle.main.bundleURL
+        let translocated = current.path.contains("/AppTranslocation/")
+        let readOnly = (try? current.resourceValues(forKeys: [.volumeIsReadOnlyKey]))?.volumeIsReadOnly ?? false
+        guard translocated || readOnly else { return false }
+
+        let alert = NSAlert()
+        alert.messageText = "Move Watch Him Code to Applications?"
+        alert.informativeText = translocated
+            ? "It's running straight from your Downloads, so macOS uses a temporary copy. That copy can disappear while the app runs, and updates can't be installed.\n\nMove it to Applications and restart from there?"
+            : "It's running from the disk image. Updates can't be installed there.\n\nCopy it to Applications and restart from there?"
+        alert.addButton(withTitle: "Move to Applications")
+        alert.addButton(withTitle: "Not Now")
+        alert.alertStyle = .informational
+        guard alert.runModal() == .alertFirstButtonReturn else { return false }
+
+        // Where the user's real copy is (for a translocated app macOS knows the original).
+        let source = translocated ? (originalURL(of: current) ?? current) : current
+        do {
+            let target = try installIntoApplications(source, move: translocated && source != current)
+            relaunch(target)
+            return true
+        } catch {
+            let fail = NSAlert()
+            fail.messageText = "Couldn't move the app"
+            fail.informativeText = "\(error.localizedDescription)\n\nPlease drag Watch Him Code into your Applications folder yourself and open it from there."
+            fail.runModal()
+            return false
+        }
+    }
+
+    /// Original location of a translocated app (Security framework, looked up at runtime).
+    func originalURL(of url: URL) -> URL? {
+        typealias Fn = @convention(c) (CFURL, UnsafeMutablePointer<Unmanaged<CFError>?>?) -> Unmanaged<CFURL>?
+        guard let lib = dlopen("/System/Library/Frameworks/Security.framework/Security", RTLD_LAZY),
+              let sym = dlsym(lib, "SecTranslocateCreateOriginalPathForURL") else { return nil }
+        let fn = unsafeBitCast(sym, to: Fn.self)
+        guard let result = fn(url as CFURL, nil)?.takeRetainedValue() as URL?,
+              FileManager.default.fileExists(atPath: result.path) else { return nil }
+        return result
+    }
+
+    func installIntoApplications(_ source: URL, move: Bool) throws -> URL {
+        let fm = FileManager.default
+        var folder = URL(fileURLWithPath: "/Applications")
+        if let custom = ProcessInfo.processInfo.environment["WHC_INSTALL_DIR"] { folder = URL(fileURLWithPath: custom) } // for testing
+        if !fm.isWritableFile(atPath: folder.path) {
+            folder = fm.homeDirectoryForCurrentUser.appendingPathComponent("Applications")
+            try fm.createDirectory(at: folder, withIntermediateDirectories: true)
+        }
+        let target = folder.appendingPathComponent(source.lastPathComponent)
+        if fm.fileExists(atPath: target.path) {
+            try fm.trashItem(at: target, resultingItemURL: nil) // an older copy: to the Trash, not deleted
+        }
+        if move {
+            try fm.moveItem(at: source, to: target)
+        } else {
+            guard run("/usr/bin/ditto", [source.path, target.path]) else {
+                throw UpdateError("Copying to \(folder.path) failed.")
+            }
+        }
+        _ = run("/usr/bin/xattr", ["-dr", "com.apple.quarantine", target.path])
+        return target
+    }
+
+    /// Start the app at `url` once this instance has quit.
+    func relaunch(_ url: URL) {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/bin/sh")
+        p.arguments = ["-c", "while kill -0 \(getpid()) 2>/dev/null; do sleep 0.2; done; open \"$0\"", url.path]
+        try? p.run()
+        DispatchQueue.main.async { NSApp.terminate(nil) }
     }
 
     // Closing the window only hides it: the app and its server keep running in
