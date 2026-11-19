@@ -15,7 +15,7 @@ const HOST = '127.0.0.1'
 const START_PORT = Number(process.env.WHC_PORT) || 4777
 const POLL_MS = 600 // read new lines
 const SCAN_MS = 2000 // look for sessions
-const ACTIVE_MS = 30 * 60 * 1000 // a session counts as active for this long
+const ACTIVE_MS = 60 * 60 * 1000 // a session counts as active for this long (tabs auto-close after it)
 const MAX_SESSIONS = 6
 const MAX_AFTER = 2 * 1024 * 1024 // larger files only as diff
 const PUBLIC = path.join(__dirname, 'public')
@@ -932,7 +932,7 @@ function statusReport() {
     const files = listSessionFiles()
     const active = files.filter(f => now - f.mtime < ACTIVE_MS).length
     if (!files.length) add('Sessions', 'fail', 'No session logs found yet', 'Start a Claude Code session on this machine.')
-    else if (!active) add('Sessions', 'idle', `${files.length} logs, none active in the last 30 minutes`, 'Start or continue a Claude Code session – it shows up automatically.')
+    else if (!active) add('Sessions', 'idle', `${files.length} logs, none active in the last hour`, 'Start or continue a Claude Code session – it shows up automatically.')
     else add('Sessions', 'ok', `${active} active, ${files.length} in total`)
   }
 

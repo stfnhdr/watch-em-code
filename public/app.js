@@ -24,6 +24,8 @@ const els = {
   statusBtn: $('status-btn'),
   updatePill: $('update-pill'),
   sessionMenu: $('session-menu'),
+  dwell: $('dwell'),
+  dwellLabel: $('dwell-label'),
   layout: $('layout'),
   resizer: $('resizer'),
   status: $('status'),
@@ -35,7 +37,7 @@ const esc = Highlight.esc
 // ---------------------------------------------------------------------------
 // Settings (stored in the browser)
 
-const DEFAULTS = { view: 'editor', theme: 'system', buddy: true, diff: 'inline', avatar: 'junior' }
+const DEFAULTS = { view: 'editor', theme: 'system', buddy: true, diff: 'inline', avatar: 'junior', dwell: 3, autoClose: false }
 const settings = { ...DEFAULTS }
 try {
   Object.assign(settings, JSON.parse(localStorage.getItem('whc.settings') || '{}'))
@@ -73,18 +75,25 @@ function applySettings(changed) {
   document.body.classList.toggle('view-cards', settings.view === 'cards')
   els.buddy.classList.toggle('hidden', !settings.buddy)
   buddy.setCharacter(settings.avatar)
-  for (const b of els.settings.querySelectorAll('[data-key]')) {
+  for (const b of els.settings.querySelectorAll('button[data-key]')) {
     b.classList.toggle('on', String(settings[b.dataset.key]) === b.dataset.value)
   }
+  els.dwell.value = settings.dwell
+  els.dwellLabel.textContent = settings.dwell ? `${settings.dwell} s` : 'instant'
+  if (changed === 'dwell' && !settings.dwell) playNext() // flush what's waiting
+  if (changed === 'autoClose') applyAutoClose()
   if (!changed || changed === 'view') els.list.innerHTML = ''
   if (!changed || changed === 'view' || changed === 'diff') renderAll()
 }
 
 els.settings.addEventListener('click', e => {
-  const b = e.target.closest('[data-key]')
+  const b = e.target.closest('button[data-key]')
   if (!b) return
-  const v = b.dataset.key === 'buddy' ? b.dataset.value === 'true' : b.dataset.value
-  setSetting(b.dataset.key, v)
+  const raw = b.dataset.value
+  setSetting(b.dataset.key, raw === 'true' ? true : raw === 'false' ? false : raw)
+})
+els.settings.addEventListener('input', e => {
+  if (e.target === els.dwell) setSetting('dwell', Number(els.dwell.value))
 })
 function toggleSettings(open = els.settings.hidden) {
   els.settings.hidden = !open
@@ -353,8 +362,10 @@ function closeTab(id) {
     return
   }
   closedTabs.set(id, Date.now())
-  if (pinnedTabs.includes(id)) {
+  if (pinnedTabs.includes(id) || autoPinned.includes(id)) {
     pinnedTabs = pinnedTabs.filter(x => x !== id)
+    autoPinned = autoPinned.filter(x => x !== id)
+    saveAutoPinned()
     fetch(`/close?id=${encodeURIComponent(id)}`).catch(() => {})
   }
   saveTabs()
@@ -376,6 +387,7 @@ function ensureSelection() {
   if (id && id !== sessionId) selectTab(id)
 }
 function selectTab(id) {
+  clearQueue()
   sessionId = id
   follow = true
   selected = cur()?.last?.filePath ?? null
@@ -398,14 +410,45 @@ async function openTab(id) {
   } catch {}
 }
 
+// "Close idle tabs: Never" – the server would drop a session after an hour
+// without activity, so every tab that shows up gets pinned there as well.
+let autoPinned = []
+try {
+  autoPinned = JSON.parse(localStorage.getItem('whc.autoPinned') || '[]')
+} catch {}
+function saveAutoPinned() {
+  try {
+    localStorage.setItem('whc.autoPinned', JSON.stringify(autoPinned))
+  } catch {}
+}
+function keepTabsOpen() {
+  if (settings.autoClose) return
+  for (const s of openSessions()) {
+    const id = s.info.id
+    if (id === Demo.ID || pinnedTabs.includes(id) || autoPinned.includes(id)) continue
+    autoPinned.push(id)
+    fetch(`/open?id=${encodeURIComponent(id)}`).catch(() => {})
+  }
+  saveAutoPinned()
+}
+/** Setting switched: pin all open tabs, or let the server drop idle ones again. */
+function applyAutoClose() {
+  if (!settings.autoClose) return keepTabsOpen()
+  for (const id of autoPinned) if (!pinnedTabs.includes(id)) fetch(`/close?id=${encodeURIComponent(id)}`).catch(() => {})
+  autoPinned = []
+  saveAutoPinned()
+}
+
 /** After (re)connecting: ask the server to watch the tabs opened by hand again. */
 function restorePinned() {
-  for (const id of pinnedTabs)
+  for (const id of settings.autoClose ? pinnedTabs : [...new Set([...pinnedTabs, ...autoPinned])])
     fetch(`/open?id=${encodeURIComponent(id)}`)
       .then(r => {
         if (r.status === 404) {
           pinnedTabs = pinnedTabs.filter(x => x !== id)
+          autoPinned = autoPinned.filter(x => x !== id)
           saveTabs()
+          saveAutoPinned()
         }
       })
       .catch(() => {})
@@ -493,6 +536,7 @@ function renderSessions(pingId) {
     })
     .join('')
   els.sessions.querySelector('.selected')?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  keepTabsOpen()
 }
 document.getElementById('session-add').addEventListener('click', e => {
   e.stopPropagation()
@@ -1127,15 +1171,70 @@ function renderAll(opts = {}) {
   renderLive()
 }
 
+// ---------------------------------------------------------------------------
+// Change queue: in live mode every file stays on screen for at least
+// settings.dwell seconds. Files changed meanwhile wait their turn (the tree,
+// toasts and the buddy react right away). A file that changes again while
+// waiting keeps its place and shows its newest state when it's up.
+
+const QUEUE_MAX = 8 // longer backlog: drop the oldest (still in the tree)
+let queue = []
+let queueTimer = null
+let shownAt = 0
+
+function clearQueue() {
+  queue = []
+  clearTimeout(queueTimer)
+  queueTimer = null
+}
+
+function showFile(path) {
+  selected = path
+  shownAt = Date.now()
+  const f = curFile()
+  renderAll({ flash: path, animate: true, changeId: f ? f.changes[f.changes.length - 1].id : null })
+}
+
+function playNext() {
+  queueTimer = null
+  if (!follow) return clearQueue()
+  while (queue.length && !cur()?.files.has(queue[0])) queue.shift()
+  if (!queue.length) return
+  showFile(queue.shift())
+  scheduleQueue()
+}
+
+function scheduleQueue() {
+  if (queueTimer || !queue.length) return
+  const wait = Math.max(0, shownAt + settings.dwell * 1000 - Date.now())
+  queueTimer = setTimeout(playNext, wait)
+}
+
+/** Live mode, selected session: show now or queue up. Returns true if it was shown now. */
+function queueChange(c) {
+  if (!settings.dwell || selected === null || Date.now() - shownAt >= settings.dwell * 1000 && !queue.length) {
+    showFile(c.filePath)
+    return true
+  }
+  if (c.filePath === selected) return false
+  if (!queue.includes(c.filePath)) queue.push(c.filePath)
+  if (queue.length > QUEUE_MAX) queue.splice(0, queue.length - QUEUE_MAX)
+  scheduleQueue()
+  return false
+}
+
 function pick(path) {
   follow = false
+  clearQueue()
   selected = path
   renderAll()
 }
 
 function goLive() {
   follow = true
+  clearQueue()
   selected = cur()?.last?.filePath ?? null
+  shownAt = Date.now()
   renderAll()
 }
 
@@ -1318,8 +1417,14 @@ function receive(sid, c) {
     renderSessions(sid) // only the other session's dot blinks
     return
   }
-  if (follow) selected = c.filePath
-  renderAll({ flash: c.filePath, animate: selected === c.filePath, changeId: c.id })
+  if (!follow) renderAll({ flash: c.filePath, animate: selected === c.filePath, changeId: c.id })
+  else if (!queueChange(c)) {
+    // waiting its turn: tree and tabs update right away; same file on screen gets the new state
+    renderSessions()
+    renderList(c.filePath)
+    renderJumpbar()
+    if (c.filePath === selected) renderMain(true, c.id)
+  }
   if (selected !== c.filePath) {
     toast(
       `✎ ${esc(split(c.rel).name)} ${kindWord(f, c)} ` +

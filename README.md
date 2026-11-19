@@ -39,7 +39,11 @@ dependencies**. `npm install` is not part of this story.
 - **Three diff modes.** *New* (just the result), *Inline* (old and new stacked) or *Side by
   side* (old left, new right, gaps hatched like a 90s textbook).
 - **Every session at once.** Running several agents? Each session gets a tab. A pulsing dot
-  tells you which one is currently busy rewriting your life.
+  tells you which one is currently busy rewriting your life. Close a tab and it comes back when
+  that session gets busy again; *+* opens older sessions. Idle tabs stay open unless you set
+  *Close idle tabs → After 1 h*.
+- **No frantic jumping.** Each change stays on screen for a few seconds (*Show each change*,
+  0–10 s); files changed meanwhile queue up and play in order. `Esc` jumps to the newest.
 - **Git branch awareness.** Shows the branch of the repo each file lives in – including nested
   repos and submodules, so you know *which* repo it's breaking.
 - **Catches shell edits too.** Agent sneaks a `sed -i` past you? Watch Him Code asks git what
@@ -145,7 +149,7 @@ browser at `http://127.0.0.1:4777`.
 Claude Code writes every session to `~/.claude/projects/<project>/<session>.jsonl` – both the
 terminal and the desktop app. Watch Him Code:
 
-1. watches every session that was active in the last 30 minutes,
+1. watches every session that was active in the last hour (plus the ones you keep open),
 2. reads new lines as they arrive (every 0.6 s),
 3. keeps only entries where a file was created or edited (`Write`, `Edit`, `MultiEdit`, and
    `NotebookEdit` on a good day),

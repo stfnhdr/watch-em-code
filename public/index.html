@@ -55,6 +55,20 @@
               </div>
             </div>
             <div class="setting">
+              <span>Show each change</span>
+              <div class="slider">
+                <input type="range" id="dwell" min="0" max="10" step="0.5" value="3" aria-label="Seconds each change stays on screen" />
+                <span id="dwell-label">3 s</span>
+              </div>
+            </div>
+            <div class="setting">
+              <span>Close idle tabs</span>
+              <div class="seg">
+                <button data-key="autoClose" data-value="false">Never</button>
+                <button data-key="autoClose" data-value="true">After 1 h</button>
+              </div>
+            </div>
+            <div class="setting">
               <span>Theme</span>
               <div class="seg">
                 <button data-key="theme" data-value="light">Light</button>
