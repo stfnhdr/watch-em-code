@@ -84,13 +84,13 @@ function openWindow(url) {
   openBrowser(url)
 }
 
-/** Is Watch Him Code already running on this port? */
+/** Is Watch 'Em Code already running on this port? */
 function isOurs(port) {
   return new Promise(resolve => {
     const req = http.get({ host: HOST, port, path: '/whc', timeout: 800 }, res => {
       let body = ''
       res.on('data', c => (body += c))
-      res.on('end', () => resolve(body.includes('watch-him-code')))
+      res.on('end', () => resolve(body.includes('watch-em-code') || body.includes('watch-him-code')))
     })
     req.on('error', () => resolve(false))
     req.on('timeout', () => {

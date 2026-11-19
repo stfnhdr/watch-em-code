@@ -1,6 +1,6 @@
 {
-  "name": "Watch Him Code",
-  "short_name": "Watch Him Code",
+  "name": "Watch 'Em Code",
+  "short_name": "Watch 'Em Code",
   "description": "Watch Claude Code create and change files, live.",
   "start_url": "/",
   "scope": "/",

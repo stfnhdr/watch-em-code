@@ -1,4 +1,4 @@
-// Watch Him Code – lean Mac app.
+// Watch 'Em Code – lean Mac app.
 // Starts server.js invisibly in the background, shows the UI in its own
 // window (WKWebView) and stops the server again when closed.
 
@@ -18,10 +18,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
     var watchdog: Timer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if renameLegacyBundle() { return } // renaming and restarting
         buildMenu()
         buildWindow()
         if offerMoveToApplications() { return } // moving and restarting
         DispatchQueue.global(qos: .userInitiated).async { self.start() }
+    }
+
+    // MARK: The old name
+
+    /// Updated from a version still called "Watch Him Code": updaters up to 0.3.5
+    /// put the new version in the old app's place. Take on the new name once
+    /// (same folder) and restart from there.
+    func renameLegacyBundle() -> Bool {
+        let current = Bundle.main.bundleURL
+        guard current.lastPathComponent == "Watch Him Code.app", !current.path.contains("/AppTranslocation/") else { return false }
+        let target = current.deletingLastPathComponent().appendingPathComponent("Watch 'Em Code.app")
+        guard !FileManager.default.fileExists(atPath: target.path) else { return false }
+        do {
+            try FileManager.default.moveItem(at: current, to: target)
+        } catch {
+            return false // e.g. no write access: keep running under the old name
+        }
+        relaunch(target)
+        return true
     }
 
     // MARK: Running from Downloads or a disk image?
@@ -37,7 +57,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         guard translocated || readOnly else { return false }
 
         let alert = NSAlert()
-        alert.messageText = "Move Watch Him Code to Applications?"
+        alert.messageText = "Move Watch 'Em Code to Applications?"
         alert.informativeText = translocated
             ? "It's running straight from your Downloads, so macOS uses a temporary copy. That copy can disappear while the app runs, and updates can't be installed.\n\nMove it to Applications and restart from there?"
             : "It's running from the disk image. Updates can't be installed there.\n\nCopy it to Applications and restart from there?"
@@ -55,7 +75,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         } catch {
             let fail = NSAlert()
             fail.messageText = "Couldn't move the app"
-            fail.informativeText = "\(error.localizedDescription)\n\nPlease drag Watch Him Code into your Applications folder yourself and open it from there."
+            fail.informativeText = "\(error.localizedDescription)\n\nPlease drag Watch 'Em Code into your Applications folder yourself and open it from there."
             fail.runModal()
             return false
         }
@@ -120,7 +140,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
     /// pressure during long background hours) or it crashes, the window would
     /// stay blank. Load the page again right away instead.
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
-        NSLog("Watch Him Code: web content process ended – reloading")
+        NSLog("Watch 'Em Code: web content process ended – reloading")
         loadPage()
     }
 
@@ -151,7 +171,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
             contentRect: NSRect(x: 0, y: 0, width: 1400, height: 900),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered, defer: false)
-        window.title = "Watch Him Code"
+        window.title = "Watch 'Em Code"
         window.isReleasedWhenClosed = false // closing hides it, the page stays live
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
@@ -240,7 +260,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         let current = Bundle.main.bundleURL
         let folder = current.deletingLastPathComponent()
         if current.path.contains("/AppTranslocation/") {
-            reportUpdate("error", "macOS runs this copy from a temporary location. Move Watch Him Code to Applications (or your Desktop), open it from there and try again.")
+            reportUpdate("error", "macOS runs this copy from a temporary location. Move Watch 'Em Code to Applications (or your Desktop), open it from there and try again.")
             return
         }
         if !FileManager.default.isWritableFile(atPath: folder.path) {
@@ -289,7 +309,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         guard run("/usr/bin/ditto", ["-x", "-k", zipFile.path, unpacked.path]) else { throw UpdateError("Could not unpack the download.") }
         guard let newApp = (try fm.contentsOfDirectory(at: unpacked, includingPropertiesForKeys: nil)).first(where: { $0.pathExtension == "app" }),
               Bundle(url: newApp)?.bundleIdentifier == Bundle.main.bundleIdentifier else {
-            throw UpdateError("The download does not contain Watch Him Code.")
+            throw UpdateError("The download does not contain Watch 'Em Code.")
         }
         guard run("/usr/bin/codesign", ["--verify", "--deep", newApp.path]) else { throw UpdateError("The new app's signature is broken.") }
         _ = run("/usr/bin/xattr", ["-dr", "com.apple.quarantine", newApp.path])
@@ -322,11 +342,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         let appItem = NSMenuItem()
         main.addItem(appItem)
         let appMenu = NSMenu()
-        appMenu.addItem(withTitle: "About Watch Him Code", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        appMenu.addItem(withTitle: "About Watch 'Em Code", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "Hide Watch Him Code", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        appMenu.addItem(withTitle: "Hide Watch 'Em Code", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "Quit Watch Him Code", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenu.addItem(withTitle: "Quit Watch 'Em Code", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appItem.submenu = appMenu
 
         let editItem = NSMenuItem()
@@ -345,7 +365,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         let windowItem = NSMenuItem()
         main.addItem(windowItem)
         let win = NSMenu(title: "Window")
-        win.addItem(withTitle: "Show Watch Him Code", action: #selector(showWindow), keyEquivalent: "0")
+        win.addItem(withTitle: "Show Watch 'Em Code", action: #selector(showWindow), keyEquivalent: "0")
         win.addItem(withTitle: "Close (keeps running)", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
         win.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
         windowItem.submenu = win
@@ -366,7 +386,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         }
         guard let node = findNode() else {
             fail("Node.js was not found.",
-                 "Watch Him Code needs Node.js 18 or newer. Install it from nodejs.org and restart the app.")
+                 "Watch 'Em Code needs Node.js 18 or newer. Install it from nodejs.org and restart the app.")
             return
         }
         guard let dir = Bundle.main.resourceURL?.appendingPathComponent("server") else { return }
@@ -422,7 +442,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         watchdog?.invalidate()
         watchdog = Timer.scheduledTimer(withTimeInterval: 8, repeats: false) { [weak self] _ in
             guard let self = self, !self.pageReady else { return }
-            NSLog("Watch Him Code: page not ready – loading again")
+            NSLog("Watch 'Em Code: page not ready – loading again")
             self.loadPage()
         }
     }
@@ -437,7 +457,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
 
     func retryLoad(_ error: Error) {
         if (error as NSError).code == NSURLErrorCancelled { return } // replaced by another load
-        NSLog("Watch Him Code: page load failed (\(error.localizedDescription)) – retrying")
+        NSLog("Watch 'Em Code: page load failed (\(error.localizedDescription)) – retrying")
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { if !self.pageReady { self.loadPage() } }
     }
 
@@ -452,7 +472,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         }
     }
 
-    /** Is Watch Him Code already answering on this port? */
+    /** Is Watch 'Em Code already answering on this port? */
     func isOurs(port: Int) -> Bool {
         guard let url = URL(string: "http://127.0.0.1:\(port)/whc") else { return false }
         var ok = false
@@ -460,7 +480,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         var req = URLRequest(url: url)
         req.timeoutInterval = 1
         URLSession.shared.dataTask(with: req) { data, _, _ in
-            if let data = data, let s = String(data: data, encoding: .utf8), s.contains("watch-him-code") { ok = true }
+            if let data = data, let s = String(data: data, encoding: .utf8), (s.contains("watch-em-code") || s.contains("watch-him-code")) { ok = true }
             done.signal()
         }.resume()
         _ = done.wait(timeout: .now() + 1.5)

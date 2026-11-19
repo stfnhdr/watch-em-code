@@ -325,7 +325,7 @@ async function main() {
     await go({ view: 'editor', theme: 'dark', diff: 'inline', buddy: true, dwell: 3 })
     await js('toggleSettings(true)')
     await sleep(600)
-    await js("document.getElementById('about-version').textContent = 'Watch Him Code 0.3.4 · up to date'; document.getElementById('check-update').hidden = false")
+    await js("document.getElementById('about-version').textContent = 'Watch \\'Em Code 0.3.4 · up to date'; document.getElementById('check-update').hidden = false")
     await shot('settings.png', await rectOf('#settings', 12))
 
     page.close()

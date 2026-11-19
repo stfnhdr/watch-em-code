@@ -8,8 +8,8 @@
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
-    <AssemblyName>WatchHimCode</AssemblyName>
-    <RootNamespace>WatchHimCode</RootNamespace>
+    <AssemblyName>WatchEmCode</AssemblyName>
+    <RootNamespace>WatchEmCode</RootNamespace>
     <ApplicationIcon>AppIcon.ico</ApplicationIcon>
     <PlatformTarget>x64</PlatformTarget>
     <Product>Watch Him Code</Product>

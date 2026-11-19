@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Watch Him Code – shows the code changes of running Claude Code sessions live.
+// Watch 'Em Code – shows the code changes of running Claude Code sessions live.
 // No dependencies, Node built-ins only. The code lives in server/:
 //
 //   config.js      constants, paths, environment variables

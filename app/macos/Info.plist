@@ -2,10 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleName</key><string>Watch Him Code</string>
-  <key>CFBundleDisplayName</key><string>Watch Him Code</string>
+  <key>CFBundleName</key><string>Watch 'Em Code</string>
+  <key>CFBundleDisplayName</key><string>Watch 'Em Code</string>
   <key>CFBundleIdentifier</key><string>local.watchhimcode.app</string>
-  <key>CFBundleExecutable</key><string>WatchHimCode</string>
+  <key>CFBundleExecutable</key><string>WatchEmCode</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>0.3.5</string>
@@ -14,7 +14,7 @@
   <key>LSMinimumSystemVersion</key><string>12.0</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.developer-tools</string>
   <key>NSHighResolutionCapable</key><true/>
-  <key>NSHumanReadableCopyright</key><string>Watch Him Code</string>
+  <key>NSHumanReadableCopyright</key><string>Watch 'Em Code</string>
   <key>NSAppTransportSecurity</key>
   <dict><key>NSAllowsLocalNetworking</key><true/></dict>
 </dict>

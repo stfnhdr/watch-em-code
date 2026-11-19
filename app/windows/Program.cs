@@ -1,4 +1,4 @@
-// Watch Him Code – lean Windows app.
+// Watch 'Em Code – lean Windows app.
 // Starts server.js invisibly in the background and shows the UI in its own
 // window (WebView2). Closing the window keeps it running in the notification
 // area (tray); "Quit" there really ends it and stops the server.
@@ -20,7 +20,7 @@ using System.Windows.Forms;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
 
-namespace WatchHimCode
+namespace WatchEmCode
 {
     static class Program
     {
@@ -64,7 +64,7 @@ namespace WatchHimCode
 
         public MainForm()
         {
-            Text = "Watch Him Code";
+            Text = "Watch 'Em Code";
             ClientSize = new Size(1400, 900);
             MinimumSize = new Size(720, 460);
             StartPosition = FormStartPosition.CenterScreen;
@@ -87,7 +87,7 @@ namespace WatchHimCode
                     if (!hintShown)
                     {
                         hintShown = true;
-                        tray.ShowBalloonTip(4000, "Watch Him Code keeps running",
+                        tray.ShowBalloonTip(4000, "Watch 'Em Code keeps running",
                             "It keeps watching in the background. Click the icon to open it, right-click → Quit to end it.",
                             ToolTipIcon.Info);
                     }
@@ -108,9 +108,9 @@ namespace WatchHimCode
         void BuildTray()
         {
             tray.Icon = Icon ?? SystemIcons.Application;
-            tray.Text = "Watch Him Code";
+            tray.Text = "Watch 'Em Code";
             var menu = new ContextMenuStrip();
-            var open = menu.Items.Add("Show Watch Him Code", null, (s, e) => ShowFromTray());
+            var open = menu.Items.Add("Show Watch 'Em Code", null, (s, e) => ShowFromTray());
             open.Font = new Font(open.Font, FontStyle.Bold);
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add("Quit", null, (s, e) => Quit());
@@ -159,8 +159,8 @@ namespace WatchHimCode
             catch (Exception)
             {
                 var answer = MessageBox.Show(this,
-                    "Watch Him Code needs the \"Microsoft Edge WebView2 Runtime\".\n\nOpen the download page now?",
-                    "Watch Him Code", MessageBoxButtons.YesNo, MessageBoxIcon.Information);
+                    "Watch 'Em Code needs the \"Microsoft Edge WebView2 Runtime\".\n\nOpen the download page now?",
+                    "Watch 'Em Code", MessageBoxButtons.YesNo, MessageBoxIcon.Information);
                 if (answer == DialogResult.Yes)
                     Process.Start(new ProcessStartInfo("https://developer.microsoft.com/microsoft-edge/webview2/") { UseShellExecute = true });
                 Quit();
@@ -287,13 +287,14 @@ namespace WatchHimCode
                 ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
                 using (var http = new HttpClient { Timeout = TimeSpan.FromMinutes(5) })
                 {
-                    http.DefaultRequestHeaders.UserAgent.ParseAdd("watch-him-code");
+                    http.DefaultRequestHeaders.UserAgent.ParseAdd("watch-em-code");
                     File.WriteAllBytes(zip, await http.GetByteArrayAsync(link));
                 }
                 string unpacked = Path.Combine(work, "unpacked");
                 ZipFile.ExtractToDirectory(zip, unpacked);
-                string exe = Directory.GetFiles(unpacked, "WatchHimCode.exe", SearchOption.AllDirectories).FirstOrDefault();
-                if (exe == null) throw new Exception("The download does not contain Watch Him Code.");
+                string exe = Directory.GetFiles(unpacked, "WatchEmCode.exe", SearchOption.AllDirectories).FirstOrDefault()
+                    ?? Directory.GetFiles(unpacked, "WatchHimCode.exe", SearchOption.AllDirectories).FirstOrDefault();
+                if (exe == null) throw new Exception("The download does not contain Watch 'Em Code.");
                 string newDir = Path.GetDirectoryName(exe);
 
                 ReportUpdate("installing");
@@ -307,7 +308,7 @@ namespace WatchHimCode
                     ":wait",
                     $"tasklist /FI \"PID eq {pid}\" 2>nul | find \"{pid}\" >nul && (timeout /t 1 /nobreak >nul & goto wait)",
                     $"robocopy \"{newDir}\" \"{appDir}\" /E /R:5 /W:1 /NFL /NDL /NJH /NJS /NP >nul",
-                    $"start \"\" \"{Path.Combine(appDir, "WatchHimCode.exe")}\"",
+                    $"start \"\" \"{Path.Combine(appDir, "WatchEmCode.exe")}\"",
                     $"rmdir /s /q \"{work}\"",
                     "(goto) 2>nul & del \"%~f0\"",
                 }) + "\r\n");
@@ -341,7 +342,7 @@ namespace WatchHimCode
             if (node == null)
             {
                 Fail("Node.js was not found.",
-                     "Watch Him Code needs Node.js 18 or newer. Install it from nodejs.org and restart the app.");
+                     "Watch 'Em Code needs Node.js 18 or newer. Install it from nodejs.org and restart the app.");
                 return;
             }
             string dir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "server");
@@ -394,7 +395,7 @@ namespace WatchHimCode
                 using (var http = new HttpClient { Timeout = TimeSpan.FromSeconds(1) })
                 {
                     string body = http.GetStringAsync($"http://127.0.0.1:{port}/whc").Result;
-                    return body.Contains("watch-him-code");
+                    return body.Contains("watch-em-code") || body.Contains("watch-him-code");
                 }
             }
             catch { return false; }

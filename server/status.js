@@ -12,7 +12,7 @@ const { updateInfo } = require('./update')
 const { repoFor } = require('./repos')
 
 // ---------------------------------------------------------------------------
-// Status: does this machine have everything Watch Him Code needs?
+// Status: does this machine have everything Watch 'Em Code needs?
 // state: ok | warn | fail | idle (nothing wrong, just nothing to show yet)
 
 const home = p => displayPath(p, '')
@@ -38,7 +38,7 @@ function statusReport() {
       'fail',
       missing ? `${home(PROJECTS)} does not exist` : `${home(PROJECTS)} is not readable (${e.code})`,
       missing
-        ? 'Run Claude Code at least once with this user account. If you use CLAUDE_CONFIG_DIR, start Watch Him Code with the same variable.'
+        ? "Run Claude Code at least once with this user account. If you use CLAUDE_CONFIG_DIR, start Watch 'Em Code with the same variable."
         : 'Give your user read access to this folder.',
     )
   }
@@ -64,7 +64,7 @@ function statusReport() {
   }
 
   // Per watched session: can we read its project, and does the agent edit in a visible way?
-  const app = process.env.WHC_PARENT_PID ? 'Watch Him Code' : 'your terminal app'
+  const app = process.env.WHC_PARENT_PID ? "Watch 'Em Code" : 'your terminal app'
   const list = []
   for (const s of [...sessions.values()].sort((a, b) => b.mtime - a.mtime)) {
     if (s.kind !== 'folder' && now - s.mtime >= ACTIVE_MS) continue
@@ -140,7 +140,7 @@ function statusReport() {
         `None via Edit/Write, but ~${hidden} likely file writes via shell/MCP`,
         getGitVersion()
           ? 'The agent changes files through shell commands or MCP tools. Those are picked up through git – but this project is not a git repo. Ask the agent to use its Edit/Write tools.'
-          : 'The agent changes files through shell commands or MCP tools. Install git so Watch Him Code can pick those up, or ask the agent to use its Edit/Write tools.',
+          : "The agent changes files through shell commands or MCP tools. Install git so Watch 'Em Code can pick those up, or ask the agent to use its Edit/Write tools.",
       )
     else item('Visible edits', 'idle', 'No edits yet')
 

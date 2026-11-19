@@ -16,7 +16,7 @@ const MAX_AFTER = 2 * 1024 * 1024 // larger files only as diff
 const PUBLIC = path.join(__dirname, '..', 'public')
 const DATA_DIR = path.join(os.homedir(), '.watch-em-code') // our own small state (watched folders)
 // The Mac/Windows app passes its own version; this is the fallback for `node server.js`.
-// When releasing, bump it together with app/macos/Info.plist and app/windows/WatchHimCode.csproj.
+// When releasing, bump it together with app/macos/Info.plist and app/windows/WatchEmCode.csproj.
 const VERSION = process.env.WHC_APP_VERSION || '0.3.5'
 
 module.exports = { CLAUDE_DIR, PROJECTS, HOST, START_PORT, POLL_MS, SCAN_MS, ACTIVE_MS, MAX_SESSIONS, MAX_AFTER, PUBLIC, DATA_DIR, VERSION }

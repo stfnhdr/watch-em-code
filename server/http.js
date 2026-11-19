@@ -55,7 +55,7 @@ const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://localhost')
 
   if (url.pathname === '/whc') {
-    res.writeHead(200, { 'Content-Type': 'application/json' }).end('{"app":"watch-him-code"}')
+    res.writeHead(200, { 'Content-Type': 'application/json' }).end('{"app":"watch-em-code","alias":"watch-him-code"}')
     return
   }
 

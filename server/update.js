@@ -30,7 +30,7 @@ async function checkUpdate() {
     let res
     for (const url of RELEASES) {
       res = await fetch(url, {
-        headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'watch-him-code' },
+        headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'watch-em-code' },
         signal: AbortSignal.timeout(10000),
       })
       if (res.status !== 404) break

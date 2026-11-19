@@ -16,7 +16,7 @@ function listen(port) {
     if (await isOurs(port)) {
       // Already running: just open a window, no second server.
       const url = `http://${HOST}:${port}`
-      console.log(`Watch Him Code is already running at ${url} – opening a window only.`)
+      console.log(`Watch 'Em Code is already running at ${url} – opening a window only.`)
       openWindow(url)
       setTimeout(() => process.exit(0), 300)
     } else if (port < START_PORT + 20) listen(port + 1)
@@ -24,7 +24,7 @@ function listen(port) {
   })
   server.listen(port, HOST, () => {
     const url = `http://${HOST}:${port}`
-    console.log(`Watch Him Code is running at ${url}  (stop with Ctrl+C)`)
+    console.log(`Watch 'Em Code is running at ${url}  (stop with Ctrl+C)`)
     // Read the session logs a moment later: the window first gets the page
     // (instantly), the data follows over the live connection.
     setTimeout(() => {

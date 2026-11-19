@@ -140,7 +140,7 @@ els.statusBtn.addEventListener('click', e => {
 })
 
 const STATUS_TEXT = {
-  ok: 'Everything Watch Him Code needs is in place.',
+  ok: "Everything Watch 'Em Code needs is in place.",
   idle: 'All set – waiting for an active session.',
   warn: 'It works, but something limits what you see.',
   fail: 'Something is missing – nothing can be shown yet.',
@@ -189,7 +189,7 @@ function renderUpdatePill(u) {
   try {
     if (localStorage.getItem('whc.updateSeen') !== u.latest) {
       localStorage.setItem('whc.updateSeen', u.latest)
-      toast(`↑ Watch Him Code ${esc(u.latest)} is available – click the ↑ button to update`)
+      toast(`↑ Watch 'Em Code ${esc(u.latest)} is available – click the ↑ button to update`)
     }
   } catch {}
 }
@@ -241,11 +241,11 @@ function renderAbout(u, checking = false) {
   box.classList.toggle('newer', !!(u && u.available))
   btn.disabled = checking
   if (!u) {
-    el.textContent = 'Watch Him Code'
+    el.textContent = "Watch 'Em Code"
     btn.textContent = 'Check now'
     return
   }
-  const v = `Watch Him Code ${u.current}`
+  const v = `Watch 'Em Code ${u.current}`
   if (checking) el.textContent = `${v} · checking …`
   else if (!u.enabled) el.textContent = `${v} · update check off`
   else if (u.available) el.textContent = `${v} · ${u.latest} available`
@@ -297,7 +297,7 @@ function statusOffline() {
       {
         label: 'Server',
         state: 'fail',
-        detail: 'No connection to the Watch Him Code server',
+        detail: "No connection to the Watch 'Em Code server",
         fix: 'Restart the app, or run `node server.js` in a terminal.',
       },
     ],
@@ -1680,7 +1680,7 @@ setInterval(() => {
   renderSessions()
 }, 2000)
 
-$('logo').innerHTML = PixelLogo.svg('Watch Him Code', { cell: 3, edge: 1, drop: 2 })
+$('logo').innerHTML = PixelLogo.svg("Watch 'Em Code", { cell: 3, edge: 1, drop: 2 })
 const buddy = Buddy.create(els.buddy)
 applySettings()
 // Check at start (opens the panel if needed), then keep the badge current.
