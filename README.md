@@ -1,11 +1,19 @@
-# Watch Him Code
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/logo-dark.png">
+    <img src="docs/screenshots/logo-light.png" width="420" alt="Watch 'Em Code">
+  </picture>
+</p>
 
-**Your AI agent writes the code. You supervise. Professionally. From a second monitor.**
+<p align="center"><b>Your AI agents write the code. You supervise. Professionally. From a second monitor.</b></p>
 
-Watch Him Code is a tiny window that shows you, live, every file
-[Claude Code](https://claude.com/claude-code) creates or changes – like a senior developer
-looking over a junior's shoulder, except the junior types 4,000 words per minute and never
-asks for a raise.
+Watch 'Em Code is a tiny window that shows you, live, every file your coding agents create or
+change – like a senior developer looking over a junior's shoulder, except the junior types 4,000
+words per minute, never asks for a raise and occasionally there are five of them.
+
+It follows [Claude Code](https://claude.com/claude-code) sessions automatically, and it watches
+**any folder** you point it at – so Cursor, Codex, Aider, Gemini CLI, your colleague or that
+script you forgot was running all show up too.
 
 No thoughts. No token counts. No costs. No chat history. Just the code, appearing in front of
 your eyes, so you can nod thoughtfully and occasionally say *"hmm"*.
@@ -20,13 +28,28 @@ Because "let the agent cook" is a great philosophy until you realise you have no
 put in the oven.
 
 The existing tools were either full-blown dashboards with seventeen tabs, charts about your
-charts and a settings page that needs its own settings page – or they used git as a source,
+charts and a settings page that needs its own settings page – or they showed you git history,
 which means you only find out what happened *after* it happened. Like a security camera that
 only shows you yesterday.
 
-Watch Him Code reads Claude Code's session logs instead, so every single edit shows up the
-moment it lands. It is deliberately small, deliberately quiet and deliberately has **zero
-dependencies**. `npm install` is not part of this story.
+Watch 'Em Code shows every single edit the moment it lands. It is deliberately small,
+deliberately quiet and deliberately has **zero dependencies**. `npm install` is not part of this
+story.
+
+## Two ways to watch
+
+**Claude Code sessions – automatic.** Watch 'Em Code reads Claude Code's session logs, so every
+session gets its own tab the moment it starts editing, with its title, its branch and every
+single edit as the agent makes it. Nothing to set up.
+
+**Any folder – one click.** Press **+** → *Choose a folder …* (or paste a path). From then on,
+every file that changes in it shows up – no matter who or what changed it. Inside git repos, git
+decides what counts (so `.gitignore` keeps `node_modules` out of your face); outside git, the
+folder is remembered as it was when you started watching. Close the tab to stop watching.
+
+![A watched folder: any agent, or none](docs/screenshots/folder-light.png)
+
+<img src="docs/screenshots/add-menu.png" width="420" alt="The + menu: watch a folder or open a Claude Code session">
 
 ## Features
 
@@ -42,29 +65,32 @@ dependencies**. `npm install` is not part of this story.
   - *Cards* – file cards with growing +/− bars and a stack of diffs per file.
 - **Three diff modes.** *New* (just the result), *Inline* (old and new stacked) or *Side by
   side* (old left, new right, gaps hatched like a 90s textbook).
-- **Catches shell edits too.** Agent sneaks a `sed -i` past you? Watch Him Code asks git what
+- **Catches shell edits too.** Claude sneaks a `sed -i` past you? Watch 'Em Code asks git what
   changed in the session's repos (subrepos included) and shows it anyway, marked *via shell*.
 
 ### Understand what changed
 
-- **What really changed, like `git diff`.** Each file shows everything the session changed in it
-  as *one* diff – several edits combined, even edits that never made it into the log. Tree, cards
-  and the bar above the file show the net +/−. The newest edit is still the one that animates.
+- **What really changed, like `git diff`.** Each file shows everything that changed in it as
+  *one* diff – several edits combined. Tree, cards and the bar above the file show the net +/−.
+  The newest edit is still the one that animates.
 - **Compare with session start or last commit.** By default you see what the whole session did.
   Switch to *Last commit* and each repo compares against its latest commit – exactly like VS Code;
   commits are picked up automatically.
 - **↺ Reset.** Long session, then a PR, then review comments? Click *Reset* (or press `c`) and
   the tab only shows what changes from now on. Nothing is deleted – the orange *since …* pill
-  brings the whole session back.
+  brings everything back.
 - **Git branch awareness.** Shows the branch of the repo each file lives in – including nested
   repos and submodules, so you know *which* repo it's breaking.
 
-### Many sessions
+### Many tabs
 
-- **Every session gets a tab.** A pulsing dot tells you which one is currently busy rewriting
-  your life. Close a tab and it comes back by itself when that session gets busy again.
-- **+ opens older sessions** – your 40 most recent ones, with title or first prompt.
-- **Tabs stay open** until you close them (or set *Close idle tabs → After 1 h*).
+- **Every Claude session and every watched folder gets a tab.** A pulsing dot tells you which one
+  is currently busy rewriting your life.
+- **+ opens a folder or an older Claude session** – your 40 most recent ones, with title or first
+  prompt.
+- **Session tabs stay open** until you close them (or set *Close idle tabs → After 1 h*), and come
+  back by themselves when that session gets busy again. Folder tabs stay until you close them –
+  even across restarts.
 - **Resizable file tree.** Drag its edge; double-click resets it.
 
 ### Live with it
@@ -132,20 +158,23 @@ At the bottom: the version you're running, with **Check now** for updates.
 
 ## Getting started
 
-You need **Node.js 18+**. That's it. That's the list.
+You need **Node.js 18+** (20+ on Linux for watching folders). That's it. That's the list.
 
 ### Download
 
-Grab the ready-made apps from the **[latest release](https://github.com/stfnhdr/watch-him-code/releases/latest)**:
+Grab the ready-made apps from the **[latest release](https://github.com/stfnhdr/watch-em-code/releases/latest)**:
 
-- **macOS** (Apple Silicon + Intel): `WatchHimCode-macOS.dmg` – open it, drag the app onto
+- **macOS** (Apple Silicon + Intel): `WatchEmCode-macOS.dmg` – open it, drag the app onto
   *Applications*, start it from there. (Starting it straight out of Downloads makes macOS run a
   temporary copy that can crash once you move the app.)
   The app isn't notarized by Apple, so the first launch gets blocked. Go to *System Settings →
   Privacy & Security* and click *Open Anyway*. Or, if you like terminals:
-  `xattr -dr com.apple.quarantine "/Applications/Watch Him Code.app"`
-- **Windows** (10/11, x64): `WatchHimCode-windows.zip` – unzip, run `WatchHimCode.exe`.
+  `xattr -dr com.apple.quarantine "/Applications/Watch 'Em Code.app"`
+- **Windows** (10/11, x64): `WatchEmCode-windows.zip` – unzip, run `WatchEmCode.exe`.
   SmartScreen will complain, see below.
+
+Coming from *Watch Him Code*? Just update from inside the app – settings, window size and
+watched sessions carry over, and the Mac app renames itself on its first start.
 
 Prefer to build it yourself? Read on.
 
@@ -155,7 +184,7 @@ Prefer to build it yourself? Read on.
 ./app/macos/build.sh
 ```
 
-Drag `dist/Watch Him Code.app` into Applications and double-click it. It starts its own little
+Drag `dist/Watch 'Em Code.app` into Applications and double-click it. It starts its own little
 server, shows everything in a native window and cleans up after itself when you quit – even if
 it crashes, because we were raised right.
 
@@ -165,7 +194,7 @@ it crashes, because we were raised right.
 ./app/windows/build.sh   # works on a Mac too, needs the .NET SDK
 ```
 
-Unzip `dist/WatchHimCode-windows.zip` on your Windows machine and run `WatchHimCode.exe`.
+Unzip `dist/WatchEmCode-windows.zip` on your Windows machine and run `WatchEmCode.exe`.
 SmartScreen will warn you about an "unknown publisher". That's us. We're the unknown publisher.
 Click *More info* → *Run anyway*.
 
@@ -188,12 +217,13 @@ browser at `http://127.0.0.1:4777`.
 | `t`   | Cycle theme: Light → Dark → System           |
 | `d`   | Demo: plays a made-up session in its own tab |
 | `i`   | Status: does everything work?                |
-| `c`   | Reset: hide this session's earlier changes, show only new ones |
+| `c`   | Reset: hide this tab's earlier changes, show only new ones |
 
 ## How it works
 
-Claude Code writes every session to `~/.claude/projects/<project>/<session>.jsonl` – both the
-terminal and the desktop app. Watch Him Code:
+**Claude Code sessions.** Claude Code writes every session to
+`~/.claude/projects/<project>/<session>.jsonl` – both the terminal and the desktop app.
+Watch 'Em Code:
 
 1. watches every session that was active in the last hour (plus the tabs you keep open),
 2. reads new lines as they arrive (every 0.6 s),
@@ -202,8 +232,17 @@ terminal and the desktop app. Watch Him Code:
 4. per file, compares the content at the session start (or the last commit, or your reset)
    with what's on disk now, and streams it all to the window via Server-Sent Events.
 
+**Watched folders.** The folder is watched with the operating system's file events (`fs.watch`).
+Inside git repos, a change makes it ask `git status` what changed and diff that against the last
+version it knew – `.gitignore` applies, and a few usual suspects (`.DS_Store`, `node_modules`,
+`dist`, editor temp files …) are left out on top. Outside git, every text file is remembered when
+watching starts (up to 5,000 files), and changes are diffed against that. Like with sessions,
+only what changes *after* you start watching shows up. The list of folders is kept in
+`~/.watch-em-code/folders.json`.
+
 It listens on `127.0.0.1` only. Your code, logs and sessions never leave your machine, nothing
-is uploaded, nothing is "synced to the cloud for a better experience".
+is uploaded, nothing is "synced to the cloud for a better experience". Endpoints that change
+something only accept requests from its own page.
 
 The one thing that does go out: every 6 hours it asks GitHub's public API for the latest release
 (no login, no data about you or your code – GitHub just sees your IP, like any download). Turn
@@ -216,12 +255,12 @@ releases, swaps the app and restarts it – only when you click. Running it with
 On a Mac, macOS may ask again for folder access after an update – the app is only signed
 locally, so every new version looks like a new app to it.
 
-**Shell edits:** if the agent changes files via shell commands (`sed`, scripts, MCP tools …),
-there's no diff in the log. So after every tool call (and every 8 s while a session is busy)
-the server runs `git status` in the session's repos – nested subrepos included – and diffs
-changed files against the last version it knew. Uncommitted work that was already there when
-it started is left alone. Outside git repos, or in `.gitignore`d files, shell edits stay
-invisible – the agent's last alibi.
+**Shell edits (Claude sessions):** if the agent changes files via shell commands (`sed`, scripts,
+MCP tools …), there's no diff in the log. So after every tool call (and every 8 s while a session
+is busy) the server runs `git status` in the session's repos – nested subrepos included – and
+diffs changed files against the last version it knew. Uncommitted work that was already there
+when it started is left alone. Outside git repos, or in `.gitignore`d files, shell edits stay
+invisible in session tabs – the agent's last alibi. (Watch the folder instead and they show up.)
 
 **Optional – finer diffs:** shell edits show up as one change per command, while Claude's own
 file tools give you every single edit as it happens. If you'd rather watch it that way, add
@@ -242,18 +281,31 @@ Prefer the Edit/Write tools over shell commands (sed, echo >, heredocs, scripts)
 | `CLAUDE_CONFIG_DIR`   | Read logs from there instead of `~/.claude` |
 | `WHC_UPDATE_CHECK=0`  | Don't check GitHub for new versions   |
 
-**Releasing:** bump the version in `server.js` (`VERSION`), `app/macos/Info.plist` and
-`app/windows/WatchHimCode.csproj`, run both build scripts and attach `WatchHimCode-macOS.dmg`,
-`WatchHimCode-macOS.zip` and `WatchHimCode-windows.zip` from `dist/` to a GitHub release tagged
-`vX.Y.Z`. The DMG is for people, the two ZIPs are what the updater downloads – keep their
-names exactly like that.
+(`WHC` is what this project was called before it learned to watch more than one agent. The
+variables keep their names so nothing breaks.)
+
+**Releasing:** bump the version in `server/config.js` (`VERSION`), `app/macos/Info.plist` and
+`app/windows/WatchEmCode.csproj`, run both build scripts and attach `WatchEmCode-macOS.dmg`,
+`WatchEmCode-macOS.zip` and `WatchEmCode-windows.zip` from `dist/` to a GitHub release tagged
+`vX.Y.Z`. The DMG is for people, the two ZIPs are what the updater downloads – they must end in
+`macOS.zip` and `windows.zip`.
 
 ## Project layout
 
 ```
-server.js               the whole backend, Node built-ins only
+server.js               entry point (node server.js)
+server/                 the backend, Node built-ins only – one module per job
+  claude.js             source: Claude Code session logs
+  folders.js            source: watched folders (fs.watch)
+  shellwatch.js         git fallback for shell edits in Claude sessions
+  sessions.js           tabs and their changes, whatever the source
+  git.js, repos.js      asking git, branches
+  diff.js, text.js      line diffs, text helpers
+  http.js, bus.js       the server, endpoints, live connection
+  update.js, status.js  update check, status check
+  window.js, main.js    opening a window, start-up
 public/                 the UI (plain HTML, CSS, JS – no framework, no build step)
-  app.js                live logic, sessions, views, diffs
+  app.js                live logic, tabs, views, diffs
   buddy.js              the Pixel Junior, Werner and their opinions
   demo.js               the made-up demo session (key d)
   highlight.js          a tiny home-made syntax highlighter
@@ -271,15 +323,22 @@ No. You're the senior now. Seniors don't type, they *observe*.
 **Does it show my prompts or the agent's thinking?**
 No. Only code. What the agent was thinking stays between the agent and its context window.
 
-**Will it show markdown files and other non-code files too?**
-Yes – anything the agent writes or edits shows up. Filters are on the wishlist.
+**Does it work with agents other than Claude Code?**
+Yes – watch their project folder (**+** → *Choose a folder …*). You get every file change, from
+anyone. What you don't get for them: automatic tabs per session and session titles, because
+those come from Claude Code's logs.
 
-**Why "Him"?**
-Because "Watch It Code" sounded like a nature documentary.
+**Will it show markdown files and other non-code files too?**
+Yes – anything that gets written shows up. In watched folders, `.gitignore` and a short list of
+usual suspects keep the worst noise out.
+
+**Why "'Em"?**
+It used to be *Watch Him Code*. Then it learned to watch every agent at once – and several at a
+time. "Them" was more accurate. "Watch It Code" sounded like a nature documentary.
 
 ---
 
-Built with Claude Code, watched with Watch Him Code. It's turtles all the way down.
+Built with Claude Code, watched with Watch 'Em Code. It's turtles all the way down.
 
 ## License
 

@@ -170,6 +170,20 @@ body {
   text-decoration: line-through;
 }
 `
+const SITE_HTML = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Pixel Todo</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <h1>Pixel Todo</h1>
+    <p>Ship faster.</p>
+    <footer>Made with too much coffee.</footer>
+  </body>
+</html>
+`
 const TEST_JS = `import { describe, it, expect } from 'vitest'
 import { getTheme, applyTheme } from '../src/theme.js'
 
@@ -325,8 +339,32 @@ async function main() {
     await go({ view: 'editor', theme: 'dark', diff: 'inline', buddy: true, dwell: 3 })
     await js('toggleSettings(true)')
     await sleep(600)
-    await js("document.getElementById('about-version').textContent = 'Watch \\'Em Code 0.3.4 · up to date'; document.getElementById('check-update').hidden = false")
+    await js("document.getElementById('about-version').textContent = 'Watch \\'Em Code 0.4.0 · up to date'; document.getElementById('check-update').hidden = false")
     await shot('settings.png', await rectOf('#settings', 12))
+
+    // 7. The "+" menu with "Watch a folder"
+    await go({ view: 'editor', theme: 'dark', diff: 'inline', buddy: true })
+    await js('toggleSessionMenu(true)')
+    await sleep(900)
+    await shot('add-menu.png', await rectOf('#session-menu', 12))
+
+    // 8. A watched folder (no agent log involved): a landing page someone edits
+    const site = path.join(HOME, 'projects', 'landing-page')
+    fs.mkdirSync(site, { recursive: true })
+    fs.writeFileSync(path.join(site, 'index.html'), SITE_HTML)
+    await go({ view: 'editor', theme: 'light', diff: 'inline', buddy: true, marks: 'latest' })
+    await js(`watchFolder(${JSON.stringify(site)})`) // what "+ → paste a path" does
+    await sleep(1500)
+    fs.writeFileSync(path.join(site, 'index.html'), SITE_HTML.replace('<p>Ship faster.</p>', '<p>Ship faster.</p>\n    <p class="tagline">Now with folders – watch any agent, or none.</p>\n    <a class="cta" href="#download">Download</a>'))
+    await sleep(1800)
+    await js("document.querySelector('.bubble').classList.remove('show')")
+    await shot('folder-light.png')
+
+    // 9. The logo on its own, dark and light (README header)
+    for (const theme of ['dark', 'light']) {
+      await go({ view: 'editor', theme, diff: 'inline', buddy: false })
+      await shot(`logo-${theme}.png`, await rectOf('#logo', 10))
+    }
 
     page.close()
   } finally {

@@ -1,7 +1,7 @@
 {
   "name": "Watch 'Em Code",
   "short_name": "Watch 'Em Code",
-  "description": "Watch Claude Code create and change files, live.",
+  "description": "Watch your coding agents create and change files, live.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

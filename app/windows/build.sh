@@ -9,7 +9,12 @@ ZIP="$ROOT/dist/WatchEmCode-windows.zip"
 
 rm -rf "$OUT" "$ZIP" bin obj
 echo "• Building WatchEmCode.exe …"
-dotnet build -c Release -o "$OUT" -nologo -v quiet
+# MSBuild can't handle the apostrophe in "Watch 'Em Code": build elsewhere, then copy.
+BUILD="$(mktemp -d)"
+trap 'rm -rf "$BUILD"' EXIT
+dotnet build -c Release -o "$BUILD" -nologo -v quiet
+mkdir -p "$OUT"
+cp -R "$BUILD"/. "$OUT"/
 
 echo "• Copying server and UI …"
 mkdir -p "$OUT/server"
