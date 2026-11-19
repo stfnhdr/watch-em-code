@@ -42,9 +42,14 @@ dependencies**. `npm install` is not part of this story.
   tells you which one is currently busy rewriting your life.
 - **Git branch awareness.** Shows the branch of the repo each file lives in – including nested
   repos and submodules, so you know *which* repo it's breaking.
+- **Catches shell edits too.** Agent sneaks a `sed -i` past you? Watch Him Code asks git what
+  changed in the session's repos (subrepos included) and shows it anyway, marked *via shell*.
+- **Status check.** The pulse icon next to the settings (or `i`) checks Node, logs, git, folder
+  access and whether edits are actually visible – and opens by itself if something's off.
 - **Light, dark or system.** Both are muted. Your retinas have suffered enough.
 - **The Pixel Junior.** See below. He's the best part. He knows it.
 - **Real apps.** A native Mac app and a Windows app, about 1 MB each. Double-click, done.
+  Closing the window keeps them watching in the background (Dock / tray); quit to really stop.
 
 ![Side-by-side diff](docs/screenshots/side-by-side-dark.png)
 
@@ -143,9 +148,12 @@ terminal and the desktop app. Watch Him Code:
 It listens on `127.0.0.1` only. Nothing leaves your machine, nothing is uploaded, nothing is
 "synced to the cloud for a better experience".
 
-**Fine print:** only changes made through Claude's file tools show up. If the agent edits files
-via shell commands (`sed`, scripts, …), they're not in the log, and Watch Him Code will
-pretend nothing happened. Which, to be fair, is also what the agent does.
+**Shell edits:** if the agent changes files via shell commands (`sed`, scripts, MCP tools …),
+there's no diff in the log. So after every tool call (and every 8 s while a session is busy)
+the server runs `git status` in the session's repos – nested subrepos included – and diffs
+changed files against the last version it knew. Uncommitted work that was already there when
+it started is left alone. Outside git repos, or in `.gitignore`d files, shell edits stay
+invisible – the agent's last alibi.
 
 ## Options
 
@@ -154,6 +162,8 @@ pretend nothing happened. Which, to be fair, is also what the agent does.
 | `WHC_PORT`            | Different port (default `4777`)       |
 | `WHC_NO_OPEN=1`       | Don't open a window                   |
 | `WHC_BROWSER=default` | Default browser instead of app window |
+| `WHC_GIT=0`           | No git fallback for shell edits       |
+| `CLAUDE_CONFIG_DIR`   | Read logs from there instead of `~/.claude` |
 
 ## Project layout
 
