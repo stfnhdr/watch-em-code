@@ -208,9 +208,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
     }
 
     func installUpdate(_ link: String) {
-        // Only official release downloads from this repository.
+        // Only official release downloads from this repository – under its old
+        // and its new name (the repo is being renamed to watch-em-code).
+        let repoPaths = ["/stfnhdr/watch-him-code/releases/download/", "/stfnhdr/watch-em-code/releases/download/"]
         guard let url = URL(string: link), url.scheme == "https", url.host == "github.com",
-              url.path.hasPrefix("/stfnhdr/watch-him-code/releases/download/") else {
+              repoPaths.contains(where: { url.path.hasPrefix($0) }) else {
             reportUpdate("error", "Unexpected download address.")
             return
         }

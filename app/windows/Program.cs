@@ -238,7 +238,12 @@ namespace WatchHimCode
         // ---------------------------------------------------------------
         // Update (only when the user clicks "Install & restart")
 
-        const string ReleaseDownloads = "https://github.com/stfnhdr/watch-him-code/releases/download/";
+        // Official release downloads – under the repo's old and new name (renamed to watch-em-code).
+        static readonly string[] ReleaseDownloads =
+        {
+            "https://github.com/stfnhdr/watch-him-code/releases/download/",
+            "https://github.com/stfnhdr/watch-em-code/releases/download/",
+        };
 
         void ReportUpdate(string state, string message = "")
         {
@@ -253,7 +258,7 @@ namespace WatchHimCode
         async Task InstallUpdateAsync(string link)
         {
             // Only official release downloads from this repository.
-            if (!link.StartsWith(ReleaseDownloads, StringComparison.Ordinal))
+            if (!ReleaseDownloads.Any(p => link.StartsWith(p, StringComparison.Ordinal)))
             {
                 ReportUpdate("error", "Unexpected download address.");
                 return;

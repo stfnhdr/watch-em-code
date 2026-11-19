@@ -21,7 +21,7 @@ const MAX_AFTER = 2 * 1024 * 1024 // larger files only as diff
 const PUBLIC = path.join(__dirname, 'public')
 // The Mac/Windows app passes its own version; this is the fallback for `node server.js`.
 // When releasing, bump it together with app/macos/Info.plist and app/windows/WatchHimCode.csproj.
-const VERSION = process.env.WHC_APP_VERSION || '0.3.4'
+const VERSION = process.env.WHC_APP_VERSION || '0.3.5'
 
 // ---------------------------------------------------------------------------
 // Reading the logs
@@ -1049,7 +1049,11 @@ const home = p => displayPath(p, '')
 // Update check: asks GitHub for the latest release now and then. Installing is
 // up to the Mac/Windows app, and only when the user clicks.
 
-const RELEASES = 'https://api.github.com/repos/stfnhdr/watch-him-code/releases/latest'
+// New repo name first; the old one still works (GitHub redirects renamed repos).
+const RELEASES = [
+  'https://api.github.com/repos/stfnhdr/watch-em-code/releases/latest',
+  'https://api.github.com/repos/stfnhdr/watch-him-code/releases/latest',
+]
 const UPDATE_EVERY_MS = 6 * 60 * 60 * 1000
 const UPDATE_CHECK = process.env.WHC_UPDATE_CHECK !== '0'
 let update = { checked: 0, latest: '', name: '', page: '', assets: {}, error: '' }
@@ -1065,10 +1069,14 @@ function newer(a, b) {
 async function checkUpdate() {
   if (!UPDATE_CHECK || typeof fetch !== 'function') return
   try {
-    const res = await fetch(RELEASES, {
-      headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'watch-him-code' },
-      signal: AbortSignal.timeout(10000),
-    })
+    let res
+    for (const url of RELEASES) {
+      res = await fetch(url, {
+        headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'watch-him-code' },
+        signal: AbortSignal.timeout(10000),
+      })
+      if (res.status !== 404) break
+    }
     if (!res.ok) throw new Error(`GitHub answered ${res.status}`)
     const r = await res.json()
     const assets = {}
