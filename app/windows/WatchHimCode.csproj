@@ -14,7 +14,7 @@
     <PlatformTarget>x64</PlatformTarget>
     <Product>Watch Him Code</Product>
     <AssemblyTitle>Watch Him Code</AssemblyTitle>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <!-- No debug info: keeps local build paths out of the published .exe -->
     <DebugType>none</DebugType>
