@@ -42,6 +42,8 @@ dependencies**. `npm install` is not part of this story.
   tells you which one is currently busy rewriting your life. Close a tab and it comes back when
   that session gets busy again; *+* opens older sessions. Idle tabs stay open unless you set
   *Close idle tabs → After 1 h*.
+- **Fresh start.** Long session, then a PR, then review comments? Press `c` (or the broom) and
+  the tab only shows changes from now on. Earlier ones are just hidden – one click brings them back.
 - **No frantic jumping.** Each change stays on screen for a few seconds (*Show each change*,
   0–10 s); files changed meanwhile queue up and play in order. `Esc` jumps to the newest.
 - **Git branch awareness.** Shows the branch of the repo each file lives in – including nested
@@ -143,6 +145,8 @@ browser at `http://127.0.0.1:4777`.
 | `s`   | Cycle diff mode: New → Inline → Side by side |
 | `t`   | Cycle theme: Light → Dark → System           |
 | `d`   | Demo: plays a made-up session in its own tab |
+| `i`   | Status: does everything work?                |
+| `c`   | Fresh start: hide this session's earlier changes, show only new ones |
 
 ## How it works
 

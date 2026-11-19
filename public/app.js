@@ -23,6 +23,7 @@ const els = {
   settings: $('settings'),
   statusBtn: $('status-btn'),
   updatePill: $('update-pill'),
+  freshBtn: $('fresh-btn'),
   sessionMenu: $('session-menu'),
   dwell: $('dwell'),
   dwellLabel: $('dwell-label'),
@@ -293,8 +294,60 @@ let connected = false
 let repos = new Map()
 
 function newSession(info) {
-  return { info, files: new Map(), last: null }
+  return { info, files: new Map(), last: null, all: [] }
 }
+
+// ---------------------------------------------------------------------------
+// Fresh start: hide a session's earlier changes and show only what comes next
+// (e.g. working in PR comments after a long session). Per session, remembered.
+
+const clearedAt = new Map() // session id -> time of the fresh start
+try {
+  for (const [id, t] of JSON.parse(localStorage.getItem('whc.clearedAt') || '[]')) clearedAt.set(id, t)
+} catch {}
+function saveCleared() {
+  try {
+    localStorage.setItem('whc.clearedAt', JSON.stringify([...clearedAt].slice(-100)))
+  } catch {}
+}
+const shownChange = (sid, c) => !clearedAt.has(sid) || c.ts > clearedAt.get(sid)
+const clockTime = t => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+
+/** Rebuild a session's visible files from all its changes. */
+function rebuild(s) {
+  s.files = new Map()
+  s.last = null
+  for (const c of s.all) if (shownChange(s.info.id, c)) addChange(s, c)
+}
+
+function freshStart() {
+  const s = cur()
+  if (!s) return
+  clearedAt.set(s.info.id, Date.now())
+  saveCleared()
+  rebuild(s)
+  clearQueue()
+  follow = true
+  selected = null
+  els.list.innerHTML = ''
+  renderAll()
+  toast(`↺ Fresh start – only changes from now on (<kbd>c</kbd>)`)
+}
+
+function showEarlier() {
+  const s = cur()
+  if (!s) return
+  clearedAt.delete(s.info.id)
+  saveCleared()
+  rebuild(s)
+  follow = true
+  selected = s.last?.filePath ?? null
+  els.list.innerHTML = ''
+  renderAll()
+}
+document.addEventListener('click', e => {
+  if (e.target.closest('[data-act="show-earlier"]')) showEarlier()
+})
 
 /** File: { filePath, rel, kind, added, removed, changes[], content, last, repo } */
 function addChange(s, c) {
@@ -614,7 +667,10 @@ function renderLive() {
 function renderList(flashPath) {
   const s = cur()
   if (!s || s.files.size === 0) {
-    els.list.innerHTML = `<div class="empty-list">No changes in this session yet.</div>`
+    els.list.innerHTML =
+      s && clearedAt.has(s.info.id)
+        ? `<div class="empty-list">No new changes since ${clockTime(clearedAt.get(s.info.id))}.<br><button class="link" data-act="show-earlier">Show earlier changes</button></div>`
+        : `<div class="empty-list">No changes in this session yet.</div>`
     return
   }
   els.list.querySelector('.empty-list')?.remove()
@@ -766,7 +822,11 @@ function renderJumpbar() {
   const last = f.changes[f.changes.length - 1]
   els.jumpbar.innerHTML =
     parts.map((p, i) => `<span class="${i === parts.length - 1 ? 'cur' : ''}">${esc(p)}</span>`).join('<span class="sep">›</span>') +
-    `<span class="spacer"></span>${hintHtml(last)}${branchHtml(s, f)}<span class="meta">${
+    `<span class="spacer"></span>${
+      clearedAt.has(s.info.id)
+        ? `<span class="hint fresh" data-act="show-earlier" title="Earlier changes are hidden – click to show them">since ${clockTime(clearedAt.get(s.info.id))} ✕</span>`
+        : ''
+    }${hintHtml(last)}${branchHtml(s, f)}<span class="meta">${
       f.changes.length === 1 ? (f.kind === 'create' ? 'created' : '1 change') : `${f.changes.length} changes`
     } · ` +
     `<span class="when" data-ts="${last.ts}">${ago(last.ts)}</span> · ` +
@@ -904,7 +964,11 @@ function splitTable(rows, lang, animate) {
 function renderMain(animate, changeId) {
   const f = curFile()
   if (!f) {
-    els.view.innerHTML = `<div class="waiting"><b>Waiting for code …</b><span>As soon as Claude creates or changes a file, it shows up here.</span><span>Nothing running? Press <kbd>d</kbd> for a demo.</span></div>`
+    const s = cur()
+    els.view.innerHTML =
+      s && clearedAt.has(s.info.id)
+        ? `<div class="waiting"><b>Fresh start at ${clockTime(clearedAt.get(s.info.id))}</b><span>Only changes from now on show up here.</span><span><button class="link" data-act="show-earlier">Show earlier changes</button></span></div>`
+        : `<div class="waiting"><b>Waiting for code …</b><span>As soon as Claude creates or changes a file, it shows up here.</span><span>Nothing running? Press <kbd>d</kbd> for a demo.</span></div>`
     return
   }
   if (settings.view === 'cards') return renderDiff(f, animate ? changeId : null)
@@ -1239,6 +1303,7 @@ function goLive() {
 }
 
 els.live.addEventListener('click', goLive)
+els.freshBtn.addEventListener('click', freshStart)
 
 document.addEventListener('keydown', e => {
   if (e.metaKey || e.ctrlKey || e.altKey) return
@@ -1257,6 +1322,7 @@ document.addEventListener('keydown', e => {
     setSetting('theme', order[(order.indexOf(settings.theme) + 1) % order.length])
   } else if (e.key === 'd') Demo.toggle()
   else if (e.key === 'i') toggleStatus()
+  else if (e.key === 'c') freshStart()
 })
 
 // File tree width: drag the edge, double-click resets. Remembered per browser.
@@ -1353,7 +1419,8 @@ events.addEventListener('reset', e => {
   for (const si of snap.sessions) {
     const { changes, ...info } = si
     const s = newSession(info)
-    for (const c of changes) addChange(s, c)
+    s.all = changes
+    rebuild(s)
     next.set(info.id, s)
   }
   sessions = next
@@ -1406,10 +1473,13 @@ function receive(sid, c) {
     s = newSession({ id: sid, project: '', cwd: '', title: '', active: Date.now() })
     sessions.set(sid, s)
   }
+  s.all.push(c)
+  if (!shownChange(sid, c)) return // before this session's fresh start
   const f = addChange(s, c)
 
-  // Selected session has no changes of its own? Switch to the active one.
-  if (follow && (!cur() || cur().files.size === 0)) {
+  // Selected session has no changes of its own? Switch to the active one
+  // (not when it's empty because of a fresh start).
+  if (follow && (!cur() || (cur().files.size === 0 && !clearedAt.has(sessionId)))) {
     sessionId = sid
     els.list.innerHTML = ''
   }

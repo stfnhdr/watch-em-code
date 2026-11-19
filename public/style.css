@@ -1237,6 +1237,22 @@ table.split td.cfill {
   font-size: var(--code-size);
   line-height: var(--code-lh);
 }
+.jumpbar .hint.fresh {
+  cursor: pointer;
+  color: rgb(var(--mod));
+  background: rgba(var(--mod), 0.12);
+}
+.jumpbar .hint.fresh:hover {
+  background: rgba(var(--mod), 0.22);
+}
+button.link {
+  margin-top: 6px;
+  padding: 0;
+  color: rgb(var(--mod));
+  font-size: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 .jumpbar .hint {
   margin-right: 14px;
   padding: 1px 7px;

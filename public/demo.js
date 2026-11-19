@@ -91,7 +91,7 @@ export function applyTheme(theme) {
   localStorage.setItem('theme', theme)
 }
 `],
-    [4200, 'src/app.js', old => old.replace("import { loadTodos", "import { getTheme, applyTheme } from './theme.js'\nimport { loadTodos").replace('renderList(todos)\n', 'applyTheme(getTheme())\nrenderList(todos)\n'), { base: APP_V1 }],
+    [4200, 'src/app.js', old => old.replace("import { loadTodos", "import { getTheme, applyTheme } from './theme.js'\nimport { loadTodos").replace(/renderList\(todos\)\n$/, 'applyTheme(getTheme())\nrenderList(todos)\n'), { base: APP_V1 }],
     [4200, 'src/styles/dark.css', `:root[data-theme='dark'] {
   --bg: #1f1f23;
   --text: #dcdce0;
