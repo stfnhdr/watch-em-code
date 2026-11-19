@@ -609,7 +609,7 @@ function splitTable(rows, lang, animate) {
 function renderMain(animate, changeId) {
   const f = curFile()
   if (!f) {
-    els.view.innerHTML = `<div class="waiting"><b>Waiting for code …</b><span>As soon as Claude creates or changes a file, it shows up here.</span></div>`
+    els.view.innerHTML = `<div class="waiting"><b>Waiting for code …</b><span>As soon as Claude creates or changes a file, it shows up here.</span><span>Nothing running? Press <kbd>d</kbd> for a demo.</span></div>`
     return
   }
   if (settings.view === 'cards') return renderDiff(f, animate ? changeId : null)
@@ -904,7 +904,7 @@ document.addEventListener('keydown', e => {
   else if (e.key === 't') {
     const order = ['light', 'dark', 'system']
     setSetting('theme', order[(order.indexOf(settings.theme) + 1) % order.length])
-  } else if (e.key === 'd' && settings.buddy) buddy.demo()
+  } else if (e.key === 'd') Demo.toggle()
   else if (e.key === 'i') toggleStatus()
 })
 
@@ -961,6 +961,7 @@ events.addEventListener('reset', e => {
   }
   sessions = next
   repos = new Map((snap.repos || []).map(r => [r.root, r]))
+  Demo.keep(sessions, repos) // the demo tab survives server resets
   if (!sessions.has(sessionId)) {
     sessionId = pickDefaultSession()
     follow = true
@@ -993,6 +994,11 @@ events.addEventListener('session', e => {
 
 events.addEventListener('change', e => {
   const { sessionId: sid, change: c } = JSON.parse(e.data)
+  receive(sid, c)
+})
+
+/** A new change for a session – from the server or from the demo. */
+function receive(sid, c) {
   let s = sessions.get(sid)
   if (!s) {
     s = newSession({ id: sid, project: '', cwd: '', title: '', active: Date.now() })
@@ -1018,4 +1024,4 @@ events.addEventListener('change', e => {
     )
   }
   buddy.onChange(c, f, s)
-})
+}

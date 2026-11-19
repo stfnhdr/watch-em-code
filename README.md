@@ -131,7 +131,7 @@ browser at `http://127.0.0.1:4777`.
 | `v`   | Switch view: Editor ↔ Cards                  |
 | `s`   | Cycle diff mode: New → Inline → Side by side |
 | `t`   | Cycle theme: Light → Dark → System           |
-| `d`   | Pixel Junior demo                            |
+| `d`   | Demo: plays a made-up session in its own tab |
 
 ## How it works
 

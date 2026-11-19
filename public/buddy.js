@@ -149,6 +149,7 @@ const Buddy = (() => {
     let look = 'open'
     let lastRemark = 0
     let bubbleTimer = null
+    let chatty = false
 
     const SLEEP_AFTER = 120000
     const TYPE_FOR = 3500
@@ -226,7 +227,7 @@ const Buddy = (() => {
       if (c.kind === 'create' && f.changes.length === 1) paper()
       if (c.removed >= 5 && c.removed > c.added) crumbs()
       const now = Date.now()
-      if (woke || now - lastRemark > COOLDOWN_MS) {
+      if (woke || now - lastRemark > (chatty ? 3000 : COOLDOWN_MS)) {
         const text = remark(c, f, s, { wokeUp: woke })
         if (text) {
           lastRemark = now
@@ -242,32 +243,17 @@ const Buddy = (() => {
       draw()
     }
 
-    /** Demo of all reactions without real changes (key "d"). */
-    let demoRunning = false
-    function demo() {
-      if (demoRunning) return
-      demoRunning = true
-      const saved = lastChange
-      const typing = () => (lastChange = Date.now())
-      const steps = [
-        [0, () => (typing(), paper(), say(pick('firstCreate')))],
-        [4000, () => (typing(), say(pick('huge', { n: 240 })))],
-        [8000, () => (typing(), crumbs(), say(pick('cleanup')))],
-        [12000, () => (typing(), say(pick('todo')))],
-        [16000, () => (typing(), say(pick('rounds', { n: 3, file: 'app.js' })))],
-        [20000, () => (typing(), paper(), say(pick('tests')))],
-        [24000, () => (typing(), say(pick('func', { fn: 'parseConfig' })))],
-        [28000, () => (typing(), say(pick('css')))],
-        [32000, () => (typing(), say(pick('debug')))],
-        [36000, () => (lastChange = Date.now() - SLEEP_AFTER - 1)], // fall asleep
-        [42500, () => (startle(), typing(), setTimeout(() => say(pick('wake')), 500))],
-        [48500, () => ((lastChange = Math.max(saved, Date.now() - TYPE_FOR - 1)), (demoRunning = false))],
-      ]
-      for (const [t, fn] of steps) setTimeout(fn, t)
+    /** Demo mode: comment on every change instead of only now and then. */
+    function setChatty(on) {
+      chatty = on
+    }
+    /** Demo mode: doze off right away (the next change wakes him up). */
+    function nap() {
+      lastChange = Date.now() - SLEEP_AFTER - 1
     }
 
     draw()
-    return { onChange, wake, say, demo }
+    return { onChange, wake, say, setChatty, nap }
   }
 
   return { create }
