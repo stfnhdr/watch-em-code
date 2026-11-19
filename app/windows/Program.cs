@@ -198,6 +198,8 @@ namespace WatchHimCode
                     try { Process.Start(new ProcessStartInfo(open.Groups[1].Value) { UseShellExecute = true }); } catch { }
                 // The page is up and connected
                 if (json.Contains("\"ready\"")) { pageReady = true; watchdog.Stop(); }
+                // "Watch a folder": the native folder picker; the page gets the path back
+                if (json.Contains("\"pickFolder\"")) BeginInvoke(new Action(PickFolder));
                 // Double-click on the page's title bar: maximize / restore
                 if (json.Contains("\"titlebar\""))
                     WindowState = WindowState == FormWindowState.Maximized ? FormWindowState.Normal : FormWindowState.Maximized;
@@ -439,6 +441,17 @@ namespace WatchHimCode
 
         [DllImport("dwmapi.dll")]
         static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
+
+        /** "Watch a folder": the native folder picker; the page gets the path back. */
+        void PickFolder()
+        {
+            using (var d = new FolderBrowserDialog { Description = "Choose a folder to watch – any agent, or none.", ShowNewFolderButton = false })
+            {
+                if (d.ShowDialog(this) != DialogResult.OK || string.IsNullOrEmpty(d.SelectedPath)) return;
+                string arg = "\"" + d.SelectedPath.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
+                web.CoreWebView2?.ExecuteScriptAsync($"window.whcFolderPicked && window.whcFolderPicked({arg})");
+            }
+        }
 
         void SetDarkTitleBar(bool dark)
         {

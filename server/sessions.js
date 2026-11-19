@@ -61,6 +61,7 @@ function sessionInfo(s) {
   const last = s.changes.length ? s.changes[s.changes.length - 1].ts : 0
   return {
     id: s.id,
+    kind: s.kind || 'claude', // 'claude' (session log) or 'folder' (watched folder)
     project: s.cwd ? path.basename(s.cwd) : '',
     cwd: s.cwd,
     title: s.title,

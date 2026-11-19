@@ -189,6 +189,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
             installUpdate(link)
         }
         if body["titlebar"] as? String == "dblclick" { titlebarDoubleClick() }
+        if body["pickFolder"] as? Bool == true { pickFolder() }
+    }
+
+    /** "Watch a folder": the native folder picker; the page gets the path back. */
+    func pickFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Watch"
+        panel.message = "Choose a folder to watch – any agent, or none."
+        panel.beginSheetModal(for: window) { response in
+            guard response == .OK, let url = panel.url,
+                  let data = try? JSONSerialization.data(withJSONObject: [url.path]),
+                  let arg = String(data: data, encoding: .utf8) else { return }
+            self.webView.evaluateJavaScript("window.whcFolderPicked && window.whcFolderPicked(\(arg)[0])")
+        }
     }
 
     /** Double-click on the page's title bar: do what the system setting says. */

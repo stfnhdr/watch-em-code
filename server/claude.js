@@ -298,6 +298,7 @@ function readNew(s, file, sink, live = false) {
 
 function poll() {
   for (const s of sessions.values()) {
+    if (s.kind === 'folder') continue // watched folders have no log
     const fresh = []
     for (const file of [s.file, ...subagentLogs(s)]) readNew(s, file, fresh, true)
     emitChanges(s, fresh)
@@ -316,8 +317,8 @@ function scan() {
   const wantedIds = new Set(wanted.map(f => f.id))
   let changed = false
 
-  for (const id of [...sessions.keys()])
-    if (!wantedIds.has(id)) {
+  for (const [id, s] of [...sessions])
+    if (s.kind !== 'folder' && !wantedIds.has(id)) {
       sessions.delete(id)
       changed = true
     }

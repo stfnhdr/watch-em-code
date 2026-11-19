@@ -9,6 +9,7 @@ const { listSessionFiles } = require('./claude')
 const { sessions } = require('./sessions')
 const { GIT_ENABLED, getGitVersion } = require('./git')
 const { updateInfo } = require('./update')
+const { repoFor } = require('./repos')
 
 // ---------------------------------------------------------------------------
 // Status: does this machine have everything Watch Him Code needs?
@@ -66,10 +67,30 @@ function statusReport() {
   const app = process.env.WHC_PARENT_PID ? 'Watch Him Code' : 'your terminal app'
   const list = []
   for (const s of [...sessions.values()].sort((a, b) => b.mtime - a.mtime)) {
-    if (now - s.mtime >= ACTIVE_MS) continue
+    if (s.kind !== 'folder' && now - s.mtime >= ACTIVE_MS) continue
     const name = s.title || (s.cwd ? path.basename(s.cwd) : s.id.slice(0, 8))
     const items = []
     const item = (label, state, detail, fix) => items.push({ label, state, detail, fix: fix || '' })
+
+    // Watched folder: is the watcher running, and what does it compare with?
+    if (s.kind === 'folder') {
+      const w = s.watch
+      if (w.error) item('Watching', 'fail', w.error, 'Update Node.js, or remove the folder and add it again.')
+      else item('Watching', 'ok', home(s.cwd))
+      const roots = s.git.roots.map(r => path.basename(r))
+      if (roots.length)
+        item('Git repos', getGitVersion() ? 'ok' : 'warn', roots.join(', '), getGitVersion() ? '' : 'Install git – changes inside these repos are found through git.')
+      if (!repoFor(s.cwd)) // the folder itself isn't in a repo: snapshot-based
+        item(
+          'Outside git',
+          w.truncated ? 'warn' : 'ok',
+          w.truncated ? 'Too many files – only the first 5,000 were remembered' : w.snapDone ? 'Files remembered as the base for diffs' : 'Reading the folder …',
+          w.truncated ? 'Files that weren’t remembered show up as new when they change. Watch a smaller folder or use git.' : '',
+        )
+      item('Changes', s.changes.length ? 'ok' : 'idle', s.changes.length ? `${s.changes.length} since watching started` : 'Nothing changed yet')
+      list.push({ id: s.id, name, items })
+      continue
+    }
 
     if (!s.cwd) item('Project folder', 'idle', 'Not known yet')
     else

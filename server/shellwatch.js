@@ -8,6 +8,7 @@ const { GIT_IDLE_MS, GIT_BUSY_MS, GIT_SETTLE_MS, getGitVersion, git, findRepos, 
 const { sessions, nextSeq, rememberBase, headContents, emitChanges } = require('./sessions')
 const { readText, same, displayPath } = require('./text')
 const { lineDiff } = require('./diff')
+const { ignored } = require('./ignore')
 const { broadcast } = require('./bus')
 
 async function scanRepo(s, root, sink) {
@@ -36,6 +37,8 @@ async function scanRepo(s, root, sink) {
 
   const now = Date.now()
   for (const rel of look) {
+    // Watched folders: also leave out what .gitignore misses (.DS_Store, node_modules …)
+    if (s.kind === 'folder' && ignored(rel)) continue
     const file = path.join(root, rel)
     if (!st.ready) {
       if (dirty.has(rel)) s.contents.set(file, readText(file) ?? null) // baseline only
@@ -87,7 +90,9 @@ async function scanRepo(s, root, sink) {
       after: after ?? '',
       ts: mtime || now,
       repo: root,
-      source: after === undefined ? 'git-deleted' : 'git',
+      // In a watched folder every change is just a change; in a Claude session
+      // it means the agent went around its Edit/Write tools ("via shell").
+      source: s.kind === 'folder' ? (after === undefined ? 'watch-deleted' : 'watch') : after === undefined ? 'git-deleted' : 'git',
     }
     rememberBase(s, gitChange, before ?? '')
     sink.push(gitChange)
@@ -121,7 +126,9 @@ function gitFallbackTick() {
   const now = Date.now()
   // Find each session's repos now and then; a repo belongs to the most recently active session.
   const owner = new Map()
-  for (const s of [...sessions.values()].sort((a, b) => a.mtime - b.mtime)) {
+  // Watched folders run their own git scans (driven by file events, see folders.js).
+  const logSessions = [...sessions.values()].filter(s => s.kind !== 'folder')
+  for (const s of logSessions.sort((a, b) => a.mtime - b.mtime)) {
     if (!s.cwd || now - s.mtime >= ACTIVE_MS) continue
     if (now - s.git.found > 60000) {
       s.git.roots = findRepos(s.cwd)
@@ -129,7 +136,7 @@ function gitFallbackTick() {
     }
     for (const r of s.git.roots) owner.set(r, s)
   }
-  for (const s of sessions.values()) {
+  for (const s of logSessions) {
     if (s.git.busy || !s.cwd) continue
     const roots = s.git.roots.filter(r => owner.get(r) === s)
     if (!roots.length) continue

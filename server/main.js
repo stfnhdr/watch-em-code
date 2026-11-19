@@ -8,6 +8,7 @@ const { scan, poll } = require('./claude')
 const { checkGit } = require('./git')
 const { checkUpdate, UPDATE_EVERY_MS } = require('./update')
 const { gitFallbackTick } = require('./shellwatch')
+const { loadFolders } = require('./folders')
 
 function listen(port) {
   server.once('error', async err => {
@@ -28,6 +29,7 @@ function listen(port) {
     // (instantly), the data follows over the live connection.
     setTimeout(() => {
       scan()
+      loadFolders() // folders watched before the restart
       setInterval(poll, POLL_MS)
       setInterval(scan, SCAN_MS)
     }, 250)

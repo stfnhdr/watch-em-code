@@ -471,6 +471,19 @@ function closeTab(id) {
     Demo.toggle()
     return
   }
+  // A watched folder: closing its tab stops watching it (add it again via "+").
+  if (sessions.get(id)?.info.kind === 'folder') {
+    post('/folders/remove', { id })
+    sessions.delete(id)
+    if (sessionId === id) {
+      sessionId = pickDefaultSession()
+      follow = true
+      selected = cur()?.last?.filePath ?? null
+      els.list.innerHTML = ''
+    }
+    renderAll()
+    return
+  }
   closedTabs.set(id, Date.now())
   if (pinnedTabs.includes(id) || autoPinned.includes(id)) {
     pinnedTabs = pinnedTabs.filter(x => x !== id)
@@ -489,6 +502,48 @@ function closeTab(id) {
 }
 
 let pendingSelect = null // opened via "+", waiting for the server to send it
+
+/** POST to one of our own endpoints (the header proves it's our page). */
+async function post(url, body = {}) {
+  try {
+    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Watch': '1' }, body: JSON.stringify(body) })
+    return await r.json()
+  } catch {
+    return { ok: false, error: 'No connection to the server.' }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Watched folders: any folder, any agent (or none). Added via "+".
+
+async function watchFolder(path) {
+  path = String(path || '').trim()
+  if (!path) return
+  const r = await post('/folders/add', { path })
+  if (!r.ok) {
+    toast(`<span class="minus">✕</span> ${esc(r.error || 'Could not watch that folder.')}`)
+    return
+  }
+  closedTabs.delete(r.id)
+  saveTabs()
+  if (sessions.has(r.id)) selectTab(r.id)
+  else pendingSelect = r.id
+}
+
+/** Opens the folder picker: the app's native one, or the system dialog via the server. */
+async function pickFolder() {
+  toggleSessionMenu(false)
+  const native = window.webkit?.messageHandlers?.whc || window.chrome?.webview
+  if (native) {
+    try {
+      native.postMessage({ pickFolder: true })
+      return // the app answers with window.whcFolderPicked(path)
+    } catch {}
+  }
+  const r = await post('/folders/pick')
+  if (r.path) watchFolder(r.path)
+}
+window.whcFolderPicked = path => watchFolder(path)
 
 /** Nothing (open) selected but a tab is there again? Select it. */
 function ensureSelection() {
@@ -594,7 +649,7 @@ function ago(ts) {
 }
 
 const kindWord = (f, c) =>
-  c.source === 'git-deleted' ? 'deleted' : c.kind === 'create' && f.changes[0] === c ? 'created' : 'modified'
+  c.source === 'git-deleted' || c.source === 'watch-deleted' ? 'deleted' : c.kind === 'create' && f.changes[0] === c ? 'created' : 'modified'
 // Changes found through git (shell commands, scripts, MCP tools) instead of the log.
 const viaGit = c => !!c && typeof c.source === 'string' && c.source.startsWith('git')
 const GIT_TIP = 'Changed outside the Edit/Write tools (shell, script or MCP tool) – picked up through git'
@@ -634,14 +689,21 @@ function renderSessions(pingId) {
         s.info.id === pingId ? 'ping' : '',
       ].join(' ')
       const r = s.info.repo && repos.get(s.info.repo)
-      const title = [s.info.cwd, r && r.branch ? `Branch: ${r.branch}` : '', `${s.files.size} ${s.files.size === 1 ? 'file' : 'files'} changed`]
+      const isFolder = s.info.kind === 'folder'
+      const title = [
+        isFolder ? `Watching folder ${s.info.cwd}` : s.info.cwd,
+        r && r.branch ? `Branch: ${r.branch}` : '',
+        `${s.files.size} ${s.files.size === 1 ? 'file' : 'files'} changed`,
+      ]
         .filter(Boolean)
         .join('\n')
-      const proj = s.info.title && s.info.project ? `<span class="proj">${esc(s.info.project)}</span>` : ''
+      const proj = !isFolder && s.info.title && s.info.project ? `<span class="proj">${esc(s.info.project)}</span>` : ''
+      const closeTip = isFolder ? 'Stop watching this folder' : 'Close tab – it comes back when the session continues'
       return (
-        `<button class="${cls}" data-id="${esc(s.info.id)}" title="${esc(title)}"><span class="dot"></span>` +
+        `<button class="${cls}${isFolder ? ' folder' : ''}" data-id="${esc(s.info.id)}" title="${esc(title)}"><span class="dot"></span>` +
+        (isFolder ? folderIcon : '') +
         `<span class="label">${esc(label(s.info))}</span>${proj}` +
-        `<span class="close" data-close="${esc(s.info.id)}" title="Close tab – it comes back when the session continues">×</span></button>`
+        `<span class="close" data-close="${esc(s.info.id)}" title="${closeTip}">×</span></button>`
       )
     })
     .join('')
@@ -698,11 +760,24 @@ async function toggleSessionMenu(open = els.sessionMenu.hidden) {
     )
   })
   els.sessionMenu.innerHTML =
-    `<div class="menu-head">Recent sessions</div>` +
+    `<div class="menu-head">Watch a folder</div>` +
+    `<button class="menu-row folder-pick" data-pick>${folderIcon}<span class="name">Choose a folder …</span>` +
+    `<span class="meta">any agent, or none – changes from now on</span></button>` +
+    `<form class="folder-path"><input name="path" placeholder="… or paste a path and press Enter" spellcheck="false" autocomplete="off"></form>` +
+    `<div class="menu-sep"></div>` +
+    `<div class="menu-head">Recent Claude Code sessions</div>` +
     (rows.length ? rows.join('') : `<div class="menu-empty">No sessions found.</div>`) +
     `<div class="menu-sep"></div><button class="menu-row demo" data-open="${Demo.ID}"><span class="dot"></span><span class="name">Demo session</span><span class="meta">a made-up session to show the app</span></button>`
 }
+els.sessionMenu.addEventListener('submit', e => {
+  e.preventDefault()
+  const input = e.target.elements.path
+  if (!input || !input.value.trim()) return
+  toggleSessionMenu(false)
+  watchFolder(input.value)
+})
 els.sessionMenu.addEventListener('click', e => {
+  if (e.target.closest('[data-pick]')) return pickFolder()
   const r = e.target.closest('[data-open]')
   if (!r) return
   toggleSessionMenu(false)
@@ -1169,7 +1244,9 @@ function renderMain(animate, changeId) {
     els.view.innerHTML =
       s && clearedAt.has(s.info.id)
         ? `<div class="waiting"><b>Reset at ${clockTime(clearedAt.get(s.info.id))}</b><span>Only changes from now on show up here.</span><span><button class="link" data-act="show-earlier">Show earlier changes</button></span></div>`
-        : `<div class="waiting"><b>Waiting for code …</b><span>As soon as Claude creates or changes a file, it shows up here.</span><span>Nothing running? Press <kbd>d</kbd> for a demo.</span></div>`
+        : s && s.info.kind === 'folder'
+          ? `<div class="waiting"><b>Watching ${esc(s.info.title)} …</b><span>As soon as a file in this folder changes – by any agent, tool or person – it shows up here.</span></div>`
+          : `<div class="waiting"><b>Waiting for code …</b><span>As soon as Claude creates or changes a file, it shows up here.</span><span>Nothing running? Press <kbd>d</kbd> for a demo, or <b>+</b> to watch any folder.</span></div>`
     return
   }
   if (settings.view === 'cards') return renderDiff(f, animate ? changeId : null)
@@ -1514,6 +1591,11 @@ els.freshBtn.addEventListener('click', freshStart)
 
 document.addEventListener('keydown', e => {
   if (e.metaKey || e.ctrlKey || e.altKey) return
+  // Typing into a field (e.g. a folder path): no shortcuts, Escape only closes the menu
+  if (e.target.closest && e.target.closest('input, textarea')) {
+    if (e.key === 'Escape') els.sessionMenu.hidden = true
+    return
+  }
   if (e.key === 'Escape') {
     if (!els.sessionMenu.hidden) els.sessionMenu.hidden = true
     else if (!els.settings.hidden) toggleSettings(false)

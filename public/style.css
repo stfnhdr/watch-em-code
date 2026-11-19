@@ -337,6 +337,29 @@ button {
 .menu-row:hover {
   background: var(--hover);
 }
+/* "Watch a folder": the folder icon takes the place of the dot */
+.menu-row.folder-pick {
+  grid-template-columns: 16px 1fr;
+}
+.folder-path {
+  margin: 2px 10px 6px 36px;
+}
+.folder-path input {
+  width: 100%;
+  padding: 6px 9px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: var(--hover);
+  color: var(--text);
+  font: 12px var(--mono);
+  outline: none;
+}
+.folder-path input:focus {
+  border-color: rgba(var(--add), 0.6);
+}
+.session.folder .icon {
+  margin-right: -2px;
+}
 .menu-row .dot {
   width: 7px;
   height: 7px;
