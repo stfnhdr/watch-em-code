@@ -39,9 +39,9 @@
   --bubble-bg: #f3f0e8;
   --bubble-fg: #222226;
 
-  --logo-fill: #3d1403;
-  --logo-edge: #e0823c;
-  --logo-drop: #000000;
+  --logo-fill: #33190d;
+  --logo-edge: #b9764a;
+  --logo-drop: rgba(0, 0, 0, 0.55);
 
   --sx-k: #d98ab4;
   --sx-s: #e39a85;
@@ -81,9 +81,9 @@
   --bubble-bg: #2b2b30;
   --bubble-fg: #f3f0e8;
 
-  --logo-fill: #e0823c;
-  --logo-edge: #3d1403;
-  --logo-drop: rgba(0, 0, 0, 0.18);
+  --logo-fill: #c58257;
+  --logo-edge: #4a2a1a;
+  --logo-drop: rgba(0, 0, 0, 0.12);
 
   --sx-k: #a8329a;
   --sx-s: #b4412f;
