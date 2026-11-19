@@ -70,21 +70,67 @@ const Buddy = (() => {
   }
 
   // Speech bubbles: rare, short, based only on facts about the change.
+  // Each rule has several lines; one is picked at random, never twice in a row.
   const COOLDOWN_MS = 75000
+  const LINES = {
+    wake: ['Oh! Back to work.', 'I was NOT asleep.', 'Huh? Yes. Code. Watching.', 'Just resting my eyes.'],
+    firstCreate: ['First file. Here we go!', 'And so it begins.', 'Blank page no more.', 'A new file is born. Congrats.'],
+    firstEdit: ['And off we go.', 'Warming up the keyboard.', 'Let the editing commence.'],
+    huge: ['+{n} lines in one go. Bold.', '{n} lines?! Somebody had coffee.', 'That is not a change, that is a novel.', 'Scroll wheel, prepare yourself.'],
+    cleanup: ['More deleted than written. Cleanup time!', 'Marie Kondo would be proud.', 'Less code, fewer bugs. Probably.', 'The best code is no code.'],
+    rounds: ['Round {n} on {file}. Tricky spot?', '{file} again. It knows what it did.', 'Edit #{n} on {file}. Persistence!', 'Still {file}? Still {file}.'],
+    manyFiles: ['{n} new files already.', '{n} new files. Is this a framework now?', 'Look at all these files. {n}!'],
+    tests: ['Tests! Very sensible.', 'Writing tests? Who ARE you?', 'A test file. My hero.', 'Future you says thanks for the tests.'],
+    docs: ['Docs. Rare, but lovely.', 'Documentation! Frame this moment.', 'Someone will actually read this. Maybe.'],
+    css: ['Making it pretty now.', 'CSS time. Good luck centering that div.', 'Pixels are being pushed.', 'Ah, the cascade. Fun.'],
+    tiny: ['A character here, a character there.', 'One line. Surgical.', 'Precision engineering.', 'Tiny change, huge confidence.'],
+    todo: ['A TODO. Future you will love that.', 'TODO: actually do the TODO.', 'Another TODO for the pile.'],
+    debug: ['console.log debugging. A classic.', 'print() – the debugger of champions.', 'Debug output. We have all been there.'],
+    func: ['New function: {fn}(). Nice name.', 'Hello, {fn}(). Welcome to the codebase.', '{fn}() just moved in.'],
+    imports: ['New import. The dependency tree grows.', 'Importing friends.', 'Pulling in reinforcements.'],
+    config: ['Config files. Living on the edge.', 'Touching config. Brave.', 'Settings, settings everywhere.'],
+    comments: ['Comments! Explaining the why. Respect.', 'Look at those comments. Chef’s kiss.'],
+    lateNight: ['Coding after midnight? Bold choice.', 'It is late. The bugs come out at night.', 'Shh, the code is sleeping. Oh wait.'],
+    earlyBird: ['Early bird gets the merge.', 'Coding before breakfast? Impressive.'],
+    friday: ['Friday afternoon deploy energy.', 'It is Friday. Are we sure about this?'],
+  }
+  let lastLine = ''
+  function pick(key, vars = {}) {
+    const pool = LINES[key]
+    let line = pool[Math.floor(Math.random() * pool.length)]
+    if (pool.length > 1 && line === lastLine) line = pool[(pool.indexOf(line) + 1) % pool.length]
+    lastLine = line
+    return line.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? '')
+  }
+
   function remark(c, f, s, ctx) {
     const name = f.rel.split('/').pop()
     const lower = name.toLowerCase()
     const created = [...s.files.values()].filter(x => x.kind === 'create').length
-    if (ctx.wokeUp) return 'Oh! Back to work.'
-    if (s.files.size === 1 && f.changes.length === 1) return c.kind === 'create' ? 'First file. Here we go!' : 'And off we go.'
-    if (c.added >= 150) return `+${c.added} lines in one go. Bold.`
-    if (c.removed >= 10 && c.removed > c.added * 2) return 'More deleted than written. Cleanup time!'
-    if ([3, 5, 8].includes(f.changes.length)) return `Round ${f.changes.length} on ${name}. Tricky spot?`
-    if (c.kind === 'create' && [5, 10, 20].includes(created)) return `${created} new files already.`
-    if (c.kind === 'create' && /(test|spec)/.test(lower)) return 'Tests! Very sensible.'
-    if (c.kind === 'create' && /readme|\.md$/.test(lower)) return 'Docs. Rare, but lovely.'
-    if (/\.(css|scss|less)$/.test(lower) && f.changes.length === 1) return 'Making it pretty now.'
-    if (c.added + c.removed === 1) return 'A character here, a character there.'
+    const added = c.hunks.flatMap(h => h.lines.filter(l => l[0] === '+').map(l => l.slice(1)))
+    const has = re => added.some(l => re.test(l))
+    const hour = new Date().getHours()
+    const fn = added.map(l => /(?:function\s+|def\s+|func\s+|fn\s+)([A-Za-z_$][\w$]*)/.exec(l)).find(Boolean)
+
+    if (ctx.wokeUp) return pick('wake')
+    if (s.files.size === 1 && f.changes.length === 1) return pick(c.kind === 'create' ? 'firstCreate' : 'firstEdit')
+    if (c.added >= 150) return pick('huge', { n: c.added })
+    if (c.removed >= 10 && c.removed > c.added * 2) return pick('cleanup')
+    if (has(/\b(TODO|FIXME|HACK)\b/)) return pick('todo')
+    if (has(/\bconsole\.(log|debug)\(|^\s*print\(|\bdbg!\(|fmt\.Println\(/)) return pick('debug')
+    if ([3, 5, 8, 13].includes(f.changes.length)) return pick('rounds', { n: f.changes.length, file: name })
+    if (c.kind === 'create' && [5, 10, 20].includes(created)) return pick('manyFiles', { n: created })
+    if (c.kind === 'create' && /(test|spec)/.test(lower)) return pick('tests')
+    if (c.kind === 'create' && /readme|\.md$/.test(lower)) return pick('docs')
+    if (/\.(css|scss|less)$/.test(lower) && f.changes.length === 1) return pick('css')
+    if (/(package\.json|\.ya?ml|\.toml|config|\.env)/.test(lower)) return pick('config')
+    if (fn && Math.random() < 0.6) return pick('func', { fn: fn[1] })
+    if (has(/^\s*(import\s|from\s+\S+\s+import|const .* = require\(|use\s+\w)/) && Math.random() < 0.5) return pick('imports')
+    if (added.filter(l => /^\s*(\/\/|#|\/\*|\*)/.test(l)).length >= 3) return pick('comments')
+    if (c.added + c.removed === 1) return pick('tiny')
+    if ((hour >= 23 || hour < 4) && Math.random() < 0.3) return pick('lateNight')
+    if (hour >= 5 && hour < 7 && Math.random() < 0.3) return pick('earlyBird')
+    if (new Date().getDay() === 5 && hour >= 15 && Math.random() < 0.2) return pick('friday')
     return null
   }
 
@@ -204,16 +250,18 @@ const Buddy = (() => {
       const saved = lastChange
       const typing = () => (lastChange = Date.now())
       const steps = [
-        [0, () => (typing(), paper(), say('First file. Here we go!'))],
-        [4500, () => (typing(), say('+240 lines in one go. Bold.'))],
-        [9000, () => (typing(), crumbs(), say('More deleted than written. Cleanup time!'))],
-        [13500, () => (typing(), say('Round 3 on app.js. Tricky spot?'))],
-        [18000, () => (typing(), paper(), say('Tests! Very sensible.'))],
-        [22500, () => (typing(), say('Making it pretty now.'))],
-        [27000, () => (typing(), say('A character here, a character there.'))],
-        [31500, () => (lastChange = Date.now() - SLEEP_AFTER - 1)], // fall asleep
-        [38000, () => (startle(), typing(), setTimeout(() => say('Oh! Back to work.'), 500))],
-        [44000, () => ((lastChange = Math.max(saved, Date.now() - TYPE_FOR - 1)), (demoRunning = false))],
+        [0, () => (typing(), paper(), say(pick('firstCreate')))],
+        [4000, () => (typing(), say(pick('huge', { n: 240 })))],
+        [8000, () => (typing(), crumbs(), say(pick('cleanup')))],
+        [12000, () => (typing(), say(pick('todo')))],
+        [16000, () => (typing(), say(pick('rounds', { n: 3, file: 'app.js' })))],
+        [20000, () => (typing(), paper(), say(pick('tests')))],
+        [24000, () => (typing(), say(pick('func', { fn: 'parseConfig' })))],
+        [28000, () => (typing(), say(pick('css')))],
+        [32000, () => (typing(), say(pick('debug')))],
+        [36000, () => (lastChange = Date.now() - SLEEP_AFTER - 1)], // fall asleep
+        [42500, () => (startle(), typing(), setTimeout(() => say(pick('wake')), 500))],
+        [48500, () => ((lastChange = Math.max(saved, Date.now() - TYPE_FOR - 1)), (demoRunning = false))],
       ]
       for (const [t, fn] of steps) setTimeout(fn, t)
     }

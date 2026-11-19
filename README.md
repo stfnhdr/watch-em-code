@@ -1,147 +1,178 @@
 # Watch Him Code
 
-A lean window for your second screen: look over the Claude Code agent's shoulder while it
-codes. It shows **only code changes** (new and modified files), live, the moment they
-happen. No thoughts, no costs, no history.
+**Your AI agent writes the code. You supervise. Professionally. From a second monitor.**
 
-## Mac app
+Watch Him Code is a tiny window that shows you, live, every file
+[Claude Code](https://claude.com/claude-code) creates or changes – like a senior developer
+looking over a junior's shoulder, except the junior types 4,000 words per minute and never
+asks for a raise.
 
-A real app you double-click: `dist/Watch Him Code.app`. It starts the server invisibly,
-shows the UI in its own window (system WebView, no browser needed) and stops the server
-again when you quit – even if the app crashes. Window size and position are remembered,
-the title bar follows light/dark.
+No thoughts. No token counts. No costs. No chat history. Just the code, appearing in front of
+your eyes, so you can nod thoughtfully and occasionally say *"hmm"*.
 
-Build it (requires Xcode or the Command Line Tools; about 1 MB plus the UI):
+![Editor view: the agent adds a TODO and the Pixel Junior has opinions](docs/screenshots/editor-dark.png)
+
+---
+
+## Why does this exist?
+
+Because "let the agent cook" is a great philosophy until you realise you have no idea what it
+put in the oven.
+
+The existing tools were either full-blown dashboards with seventeen tabs, charts about your
+charts and a settings page that needs its own settings page – or they used git as a source,
+which means you only find out what happened *after* it happened. Like a security camera that
+only shows you yesterday.
+
+Watch Him Code reads Claude Code's session logs instead, so every single edit shows up the
+moment it lands. It is deliberately small, deliberately quiet and deliberately has **zero
+dependencies**. `npm install` is not part of this story.
+
+## Features
+
+- **Live, file by file.** New and modified files appear instantly. The view follows the latest
+  change automatically, like a very loyal dog.
+- **Two views, same powers.**
+  - *Editor* – Xcode-flavoured: folder tree, the whole file, changes marked in the gutter.
+    Deleted lines briefly appear struck through, then politely collapse.
+  - *Cards* – file cards with growing +/− bars and a stack of diffs per file.
+- **Three diff modes.** *New* (just the result), *Inline* (old and new stacked) or *Side by
+  side* (old left, new right, gaps hatched like a 90s textbook).
+- **Every session at once.** Running several agents? Each session gets a tab. A pulsing dot
+  tells you which one is currently busy rewriting your life.
+- **Git branch awareness.** Shows the branch of the repo each file lives in – including nested
+  repos and submodules, so you know *which* repo it's breaking.
+- **Light, dark or system.** Both are muted. Your retinas have suffered enough.
+- **The Pixel Junior.** See below. He's the best part. He knows it.
+- **Real apps.** A native Mac app and a Windows app, about 1 MB each. Double-click, done.
+
+![Side-by-side diff](docs/screenshots/side-by-side-dark.png)
+
+![Cards view in light mode](docs/screenshots/cards-light.png)
+
+## Meet the Pixel Junior
+
+<img src="docs/screenshots/pixel-junior.png" width="260" align="right" alt="The Pixel Junior">
+
+He sits in the corner, types along when code comes in, throws a little sheet of paper when a new
+file is born, sweeps up crumbs when code gets deleted, falls asleep after two minutes of silence
+and startles awake when work resumes. Just like a real developer.
+
+Occasionally he comments on what he sees. Rarely, briefly, and based only on facts:
+
+> *"+240 lines in one go. Bold."*
+> *"A TODO. Future you will love that."*
+> *"console.log debugging. A classic."*
+> *"Writing tests? Who ARE you?"*
+> *"CSS time. Good luck centering that div."*
+> *"I was NOT asleep."*
+
+Press **`d`** to make him perform his entire repertoire. Don't like him? Settings → Pixel Junior →
+Off. He won't take it personally. (He will.)
+
+<br clear="right">
+
+## Getting started
+
+You need **Node.js 18+**. That's it. That's the list.
+
+### Mac
 
 ```bash
 ./app/macos/build.sh
 ```
 
-Then drag `dist/Watch Him Code.app` into your Applications folder, for example. Node.js 18+
-must be installed; the app finds it the way the Terminal does (login shell) or in the
-usual places (Homebrew, nvm, Volta). Server and UI are copied into the app at build time –
-rebuild after changing the code.
+Drag `dist/Watch Him Code.app` into Applications and double-click it. It starts its own little
+server, shows everything in a native window and cleans up after itself when you quit – even if
+it crashes, because we were raised right.
 
-## Windows app
-
-Same idea as on the Mac: `WatchHimCode.exe` starts the server invisibly, shows the UI in
-its own window (WebView2, the Edge engine) and stops the server when closed. It is built
-on .NET Framework 4.8, which ships with Windows 10/11, so nothing besides Node.js needs to
-be installed. The WebView2 runtime comes with Windows 11 and current Windows 10 versions;
-if it's missing, the app offers to open the download page.
-
-Build it (works on the Mac too, requires the .NET SDK):
+### Windows
 
 ```bash
-./app/windows/build.sh
+./app/windows/build.sh   # works on a Mac too, needs the .NET SDK
 ```
 
-Output: `dist/WatchHimCode-windows.zip` (about 360 KB). Unzip it on the Windows machine and
-double-click `WatchHimCode.exe`; create a shortcut for the Start menu or taskbar. On first
-launch Windows SmartScreen may say "Unknown publisher" → "More info" → "Run anyway" (the
-app is not signed).
+Unzip `dist/WatchHimCode-windows.zip` on your Windows machine and run `WatchHimCode.exe`.
+SmartScreen will warn you about an "unknown publisher". That's us. We're the unknown publisher.
+Click *More info* → *Run anyway*.
 
-## Running without the apps
+### Without the apps
 
 ```bash
 node server.js
 ```
 
-This opens **its own app window** (no address bar or tabs) at `http://127.0.0.1:4777`,
-using Chrome, Edge, Brave or Chromium in app mode (`--app=…`); if none of them is
-installed, your default browser opens instead. Edge is always available on Windows.
+Opens a chromeless app window via Chrome/Edge (`--app` mode) or falls back to your default
+browser at `http://127.0.0.1:4777`.
 
-If Watch Him Code is already running, a second start only opens another window, not a
-second server. If the port is taken by something else, the next free one is used.
-Stop it with `Ctrl+C`.
+## Keyboard shortcuts
 
-**Install as an app (optional):** in the app window or in Chrome/Edge via the menu
-"Install" / "Install as app". Watch Him Code then shows up in Launchpad or the Start menu
-with the Pixel Junior as its icon (the server has to be running). With Safari on macOS
-Sonoma or later: File → Add to Dock.
-
-Requirement: Node.js 18 or newer. No `npm install` needed.
-
-## Using it
-
-Read-only – nothing gets edited. The slider icon at the top right (settings) lets you
-switch the following; everything is stored in the browser:
-
-- **View**: *Editor* (Xcode-like: folder tree, whole file, changes in the gutter) or
-  *Cards* (file cards with bars, diff blocks of all changes to a file). Both have the
-  same features. Key `v`.
-- **Diff**: *New* (only the new version, changes marked), *Inline* (old and new stacked)
-  or *Side by side* (old on the left, new on the right, gaps hatched). Applies to both
-  views. New files have no previous version and are shown as *New*; if the window is too
-  narrow (content area under about 900 px), *Inline* is used. A note in the path bar
-  tells you when that happens. Key `s`.
-- **Theme**: Light, Dark or System. Key `t`.
-- **Pixel Junior**: on/off.
-
-What you see:
-
-- **Title bar**: all sessions from the last 30 minutes as tabs. A pulsing green dot means
-  that session is changing code right now. Live follows the selected session; changes in
-  other sessions only make their dot blink briefly.
-- **Navigator** (left): folder tree of changed files, **A** = added, **M** = modified,
-  plus `+`/`−`.
-- **Code** (editor view): the whole file with line numbers. The latest change is marked in
-  the gutter (green = new, amber = modified, red wedge = deleted; hover to see the old
-  text). On new changes the view scrolls there; deleted lines briefly appear struck
-  through and then collapse.
-- **Cards view**: cards light up on changes and their bar grows; in the middle, all
-  changes to the file as diffs, newest first.
-- **Branch**: on the right of the path bar, the branch of the repo the file lives in. For
-  nested repos (nearest `.git` above the file, also submodules/worktrees) the repo name is
-  shown in front. Read straight from `.git/HEAD`, no `git` call.
-- **Toast**: when a file other than the one shown changes, a short note pops up at the
-  bottom.
-- **Live**: automatically follows the current file. Clicking a file pins it; go back with
-  "Follow live" or `Esc`.
-- **Pixel Junior** (bottom left): types when code comes in, drops new files, erases on
-  deletions, falls asleep after 2 minutes of quiet and now and then comments on what's
-  happening. Key `d` plays all reactions. The pixel font (Pixelify Sans, SIL Open Font
-  License) is bundled in `public/fonts/`; nothing is loaded from the internet.
+| Key   | Does                                         |
+| ----- | -------------------------------------------- |
+| `Esc` | Back to live (follow the latest change)      |
+| `v`   | Switch view: Editor ↔ Cards                  |
+| `s`   | Cycle diff mode: New → Inline → Side by side |
+| `t`   | Cycle theme: Light → Dark → System           |
+| `d`   | Pixel Junior demo                            |
 
 ## How it works
 
-Claude Code (terminal and desktop app alike) writes every session as a log to
-`~/.claude/projects/<project>/<session>.jsonl`. The server
+Claude Code writes every session to `~/.claude/projects/<project>/<session>.jsonl` – both the
+terminal and the desktop app. Watch Him Code:
 
-1. watches all sessions written to in the last 30 minutes (max. 6),
-2. reads new lines incrementally (every 0.6 s),
-3. picks entries with `toolUseResult.filePath` + `structuredPatch` (Edit, Write,
-   MultiEdit; NotebookEdit tolerated),
-4. sends them to the page via Server-Sent Events.
+1. watches every session that was active in the last 30 minutes,
+2. reads new lines as they arrive (every 0.6 s),
+3. keeps only entries where a file was created or edited (`Write`, `Edit`, `MultiEdit`, and
+   `NotebookEdit` on a good day),
+4. reconstructs the full file around each change and streams it to the window via
+   Server-Sent Events.
 
-Subagent logs under `<session>/subagents/` are read as well. Only changes made through
-Claude's file tools show up – edits made by shell commands are not in the log.
+It listens on `127.0.0.1` only. Nothing leaves your machine, nothing is uploaded, nothing is
+"synced to the cloud for a better experience".
 
-The server listens on `127.0.0.1` only, so it's not reachable from outside.
-
-## Views
-
-- `http://127.0.0.1:4777/` – current UI
-- `http://127.0.0.1:4777/base/` – **base mode**: frozen state of step 1 (German), no longer
-  changed. Also kept in the git tag `base`.
+**Fine print:** only changes made through Claude's file tools show up. If the agent edits files
+via shell commands (`sed`, scripts, …), they're not in the log, and Watch Him Code will
+pretend nothing happened. Which, to be fair, is also what the agent does.
 
 ## Options
 
-| Variable              | Effect                              |
-| --------------------- | ----------------------------------- |
-| `WHC_PORT`            | different start port (default 4777) |
-| `WHC_NO_OPEN=1`       | don't open a window                 |
-| `WHC_BROWSER=default` | default browser instead of app window |
+| Variable              | Effect                                |
+| --------------------- | ------------------------------------- |
+| `WHC_PORT`            | Different port (default `4777`)       |
+| `WHC_NO_OPEN=1`       | Don't open a window                   |
+| `WHC_BROWSER=default` | Default browser instead of app window |
 
-## Files
+## Project layout
 
-- `server.js` – watcher + HTTP/SSE server (Node built-ins only)
-- `public/index.html`, `style.css` – UI
-- `public/app.js` – live logic, sessions, navigator, code view
-- `public/buddy.js` – the Pixel Junior
-- `public/logo.js` – the pixel logo (custom 5×7 letters as SVG)
-- `public/highlight.js` – small home-made syntax highlighter
-- `public/manifest.webmanifest`, `icon*.png`, `icon.svg` – app icon and web app metadata
-- `public/base/` – frozen base view
-- `app/macos/` – Mac app: `main.swift` (window + server start), `Info.plist`, icon, `build.sh`
-- `app/windows/` – Windows app: `Program.cs` (window + server start), project, icon, `build.sh`
+```
+server.js               the whole backend, Node built-ins only
+public/                 the UI (plain HTML, CSS, JS – no framework, no build step)
+  app.js                live logic, sessions, views, diffs
+  buddy.js              the Pixel Junior and his opinions
+  highlight.js          a tiny home-made syntax highlighter
+  logo.js               the pixel logo, letter by letter
+app/macos/              Swift + WKWebView wrapper
+app/windows/            C# + WebView2 wrapper (.NET Framework 4.8, built into Windows)
+tools/screenshots.js    regenerates these screenshots from a fake demo project
+```
+
+## FAQ
+
+**Can I edit code in it?**
+No. You're the senior now. Seniors don't type, they *observe*.
+
+**Does it show my prompts or the agent's thinking?**
+No. Only code. What the agent was thinking stays between the agent and its context window.
+
+**Will it show markdown files and other non-code files too?**
+Yes – anything the agent writes or edits shows up. Filters are on the wishlist.
+
+**Why "Him"?**
+Because "Watch It Code" sounded like a nature documentary.
+
+---
+
+Built with Claude Code, watched with Watch Him Code. It's turtles all the way down.
+
+The pixel font is [Pixelify Sans](https://github.com/eifetx/Pixelify-Sans) (SIL Open Font
+License, bundled in `public/fonts/`).
