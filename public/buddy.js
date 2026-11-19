@@ -4,6 +4,7 @@
 // falls asleep when nothing happens and startles awake when work resumes.
 
 const Buddy = (() => {
+  // Default grid; a character can bring its own size and pixel scale.
   const SCALE = 5
   const W = 20
   const H = 16
@@ -65,13 +66,19 @@ const Buddy = (() => {
     },
 
     // Werner Sauer: the team's alpaca. Rainbow wool, yellow scarf, unimpressed brows.
+    // Finer grid (26×30 at 4 px) than the junior, so he's easier to recognise.
     werner: {
       name: 'Werner',
+      w: 26,
+      h: 30,
+      scale: 4,
       colors: {
         o: '#4b3b33', // outline
-        E: '#e9dcc6', // ears
+        q: '#c2ab96', // face outline (soft)
+        E: '#e9dcc6', // inner ears
         f: '#f1e6d2', // face
-        n: '#4b3b33', // nose
+        n: '#5a463b', // nose
+        w: '#4b3b33', // brows (unimpressed)
         r: '#f3b5b5', // wool: pink
         y: '#f3ec9e', // wool: yellow
         g: '#bfe9ae', // wool: green
@@ -80,64 +87,81 @@ const Buddy = (() => {
         v: '#c9b5f0', // wool: violet
         p: '#f2b6dc', // wool: rose
         S: '#f6c516', // scarf
+        s: '#d9a40c', // scarf shade
         h: '#e9dcc6', // hooves
         L: '#8d929b', // laptop
         D: '#6b7079', // laptop base
         k: '#d8e9e0', // logo
         e: '#2b2b31', // eyes
-        w: '#6b5244', // brows (unimpressed)
         m: '#9a5b4f', // mouth
       },
       base: [
-        '......o......o......',
-        '.....oEo....oEo.....',
-        '....rryyrrrryyrr....',
-        '...yyggyyggyyggyy...',
-        '...ggcwffffffwcgg...',
-        '...ccbfwffffwfbcc...',
-        '...bbvffffffffvbb...',
-        '...bvvffffffffvvb...',
-        '....vvvffnfffvvv....',
-        '....SSSSSSSSSSSS....',
-        '...pSSSSSSSSSSSSp...',
-        '..ppppSSppvvppvvpp..',
-        '..LLLLLLLLLLLLLLLL..',
-        '..LLLLLLLLLLLLLLLL..',
-        '..LLLLLLLkLLLLLLLL..',
-        '..DDDDDDDDDDDDDDDD..',
+        '........o........o........',
+        '.......oEooooooooEo.......',
+        '......ooEoygggggoEoo......',
+        '.....oyoEogggcccoEobo.....',
+        '....oygggggcccccbbbbbo....',
+        '....oggggcccccbbbbbvvo....',
+        '.....ogcccccbbbbbvvvo.....',
+        '...ooccccbbbbbvvvvvppoo...',
+        '...occcbbbbqvvqvvpppppo...',
+        '...ocbbbbbqfqvqqqppprro...',
+        '...obbbbvqfffqffqrrrrro...',
+        '...obvvvqwwffffwwqrryyo...',
+        '...ovvvvqffwffwffqyyyyo...',
+        '...ovvppqffffffffqyyyyo...',
+        '...oooppqffffffffqyyooo...',
+        '......orqffffffffqyo......',
+        '......orqqffnnffqqyo......',
+        '.....oryyyqqqqqqygggo.....',
+        '....oSSSSSSSSSSSSSSSSo....',
+        '...oysSSSSSSSSSSSSSSsco...',
+        '...oysSSSSSSSSSSSSSSsbo...',
+        '..oyyySSSggggccccbbbbbvo..',
+        '..oyygSSSgcccccbbbbbvvvo..',
+        '...oggSSSccccbbbbbvvvvo...',
+        '...oooooooooooooooooooo...',
+        '...LLLLLLLLLLLLLLLLLLLL...',
+        '...LLLLLLLLLLLLLLLLLLLL...',
+        '...LLLLLLLLLkkLLLLLLLLL...',
+        '...LLLLLLLLLLLLLLLLLLLL...',
+        '...DDDDDDDDDDDDDDDDDDDD...',
       ],
       eyes: {
-        open: [[8, 6], [8, 7], [11, 6], [11, 7]],
-        down: [[8, 7], [11, 7]],
-        left: [[7, 6], [7, 7], [10, 6], [10, 7]],
-        right: [[9, 6], [9, 7], [12, 6], [12, 7]],
-        closed: [[7, 7], [8, 7], [11, 7], [12, 7]],
-        wide: [[7, 6], [8, 6], [7, 7], [8, 7], [11, 6], [12, 6], [11, 7], [12, 7]],
+        open: [[10, 13], [10, 14], [15, 13], [15, 14]],
+        down: [[10, 14], [15, 14]],
+        left: [[9, 13], [9, 14], [14, 13], [14, 14]],
+        right: [[11, 13], [11, 14], [16, 13], [16, 14]],
+        closed: [[9, 14], [10, 14], [15, 14], [16, 14]],
+        wide: [[9, 12], [10, 12], [9, 13], [10, 13], [9, 14], [10, 14], [15, 12], [16, 12], [15, 13], [16, 13], [15, 14], [16, 14]],
       },
       hands: {
-        rest: [[4, 11], [5, 11], [14, 11], [15, 11]],
-        typeL: [[4, 10], [5, 10], [14, 11], [15, 11]],
-        typeR: [[4, 11], [5, 11], [14, 10], [15, 10]],
-        up: [[2, 8], [2, 9], [17, 8], [17, 9]],
+        rest: [[6, 24], [7, 24], [18, 24], [19, 24]],
+        typeL: [[6, 23], [7, 23], [18, 24], [19, 24]],
+        typeR: [[6, 24], [7, 24], [18, 23], [19, 23]],
+        up: [[2, 17], [2, 18], [23, 17], [23, 18]],
       },
       hand: 'h',
-      mouth: [[9, 8], [10, 8]],
+      mouth: [[12, 16], [13, 16], [12, 15], [13, 15]],
     },
   }
 
   function svg(who, eyes, hands, mouth) {
     const ch = CHARACTERS[who] || CHARACTERS.junior
+    const w = ch.w || W
+    const h = ch.h || H
+    const scale = ch.scale || SCALE
     const px = ch.base.map(r => r.split(''))
     for (const [x, y] of ch.hands[hands]) px[y][x] = ch.hand
     for (const [x, y] of ch.eyes[eyes]) px[y][x] = 'e'
     if (mouth) for (const [x, y] of ch.mouth) px[y][x] = 'm'
     let rects = ''
-    for (let y = 0; y < H; y++)
-      for (let x = 0; x < W; x++) {
+    for (let y = 0; y < h; y++)
+      for (let x = 0; x < w; x++) {
         const k = px[y][x]
         if (k !== '.') rects += `<rect x="${x}" y="${y}" width="1" height="1" fill="${ch.colors[k]}"/>`
       }
-    return `<svg width="${W * SCALE}" height="${H * SCALE}" viewBox="0 0 ${W} ${H}" shape-rendering="crispEdges">${rects}</svg>`
+    return `<svg width="${w * scale}" height="${h * scale}" viewBox="0 0 ${w} ${h}" shape-rendering="crispEdges">${rects}</svg>`
   }
 
   // Speech bubbles: rare, short, based only on facts about the change.
@@ -328,6 +352,8 @@ const Buddy = (() => {
     function setCharacter(name) {
       who = CHARACTERS[name] ? name : 'junior'
       root.dataset.character = who
+      const ch = CHARACTERS[who]
+      root.style.setProperty('--fig-h', `${(ch.h || H) * (ch.scale || SCALE)}px`)
       draw()
     }
 

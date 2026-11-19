@@ -1125,9 +1125,10 @@ table.split td.cfill {
 
 /* Pixel Junior ------------------------------------------------------------ */
 .buddy {
+  --fig-h: 80px; /* set per avatar by buddy.js */
   position: relative;
   flex: none;
-  height: 170px;
+  height: calc(var(--fig-h) + 90px);
   border-top: 1px solid var(--line);
   overflow: visible;
 }
@@ -1161,7 +1162,7 @@ table.split td.cfill {
 .bubble {
   position: absolute;
   left: 50%;
-  bottom: 118px;
+  bottom: calc(var(--fig-h) + 38px);
   max-width: 220px;
   width: max-content;
   padding: 8px 12px;
@@ -1201,7 +1202,7 @@ table.split td.cfill {
 .zzz {
   position: absolute;
   left: calc(50% + 34px);
-  bottom: 86px;
+  bottom: calc(var(--fig-h) + 6px);
   font: 400 15px 'Pixelify Sans', var(--mono);
   color: var(--dim);
   opacity: 0;
