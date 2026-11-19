@@ -174,5 +174,11 @@ Because "Watch It Code" sounded like a nature documentary.
 
 Built with Claude Code, watched with Watch Him Code. It's turtles all the way down.
 
+## License
+
+[MIT](LICENSE) – do whatever you want, just keep the notice. The software comes "as is",
+which, given that it was written by an AI and supervised by a human from a second monitor,
+seems only fair.
+
 The pixel font is [Pixelify Sans](https://github.com/eifetx/Pixelify-Sans) (SIL Open Font
-License, bundled in `public/fonts/`).
+License, bundled in `public/fonts/` with its own license).
