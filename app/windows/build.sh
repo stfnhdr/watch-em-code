@@ -14,6 +14,7 @@ dotnet build -c Release -o "$OUT" -nologo -v quiet
 echo "• Copying server and UI …"
 mkdir -p "$OUT/server"
 cp "$ROOT/server.js" "$OUT/server/"
+cp -R "$ROOT/server" "$OUT/server/"
 cp -R "$ROOT/public" "$OUT/server/"
 rm -f "$OUT"/*.pdb "$OUT"/*.xml
 # Also put WebView2Loader.dll next to the .exe so it is always found

@@ -18,6 +18,7 @@ lipo -create "$TMP/arm64" "$TMP/x86_64" -output "$APP/Contents/MacOS/WatchHimCod
 echo "• Copying server and UI …"
 cp Info.plist "$APP/Contents/"
 cp "$ROOT/server.js" "$APP/Contents/Resources/server/"
+cp -R "$ROOT/server" "$APP/Contents/Resources/server/"
 cp -R "$ROOT/public" "$APP/Contents/Resources/server/"
 
 echo "• Creating app icon …"
