@@ -38,7 +38,7 @@ const esc = Highlight.esc
 // ---------------------------------------------------------------------------
 // Settings (stored in the browser)
 
-const DEFAULTS = { view: 'editor', theme: 'system', buddy: true, diff: 'inline', avatar: 'junior', dwell: 3, autoClose: false, marks: 'session' }
+const DEFAULTS = { view: 'editor', theme: 'system', buddy: true, diff: 'inline', avatar: 'junior', dwell: 3, autoClose: false, marks: 'session', compare: 'session' }
 const settings = { ...DEFAULTS }
 try {
   Object.assign(settings, JSON.parse(localStorage.getItem('whc.settings') || '{}'))
@@ -84,7 +84,7 @@ function applySettings(changed) {
   if (changed === 'dwell' && !settings.dwell) playNext() // flush what's waiting
   if (changed === 'autoClose') applyAutoClose()
   if (!changed || changed === 'view') els.list.innerHTML = ''
-  if (!changed || changed === 'view' || changed === 'diff' || changed === 'marks') renderAll()
+  if (!changed || changed === 'view' || changed === 'diff' || changed === 'marks' || changed === 'compare') renderAll()
 }
 
 els.settings.addEventListener('click', e => {
@@ -294,7 +294,7 @@ let connected = false
 let repos = new Map()
 
 function newSession(info) {
-  return { info, files: new Map(), last: null, all: [], latest: new Map(), bases: new Map(), nows: new Map() }
+  return { info, files: new Map(), last: null, all: [], latest: new Map(), bases: new Map(), nows: new Map(), heads: new Map() }
 }
 
 // Memory: the app may run for days in the background. Keep the full file
@@ -859,7 +859,7 @@ function netHtml(f, last) {
   const combinedView = combined(f)
   const n = combinedView ? net(f) : last
   const title = combinedView
-    ? `Net change ${clearedAt.has(cur()?.info.id) ? 'since the fresh start' : 'in this session'} · newest edit: +${last.added} −${last.removed}`
+    ? `Net change ${clearedAt.has(cur()?.info.id) ? 'since the fresh start' : settings.compare === 'commit' ? 'since the last commit' : 'in this session'} · newest edit: +${last.added} −${last.removed}`
     : 'Newest edit'
   return `<span title="${esc(title)}"><span class="plus">+${n.added}</span> <span class="minus">−${n.removed}</span></span>`
 }
@@ -974,14 +974,15 @@ function combined(f) {
   if (settings.marks === 'latest' || f.content === null) return null
   const s = cur()
   const fresh = !!s && clearedAt.has(s.info.id)
-  const base = !fresh && s ? s.bases.get(f.filePath) : undefined
-  if (f.cum && f.cum.n === f.changes.length && f.cum.content === f.content && f.cum.fresh === fresh) return f.cum.change
+  // Base: the fresh start, or the last commit, or the start of the session
+  const base = fresh || !s ? undefined : settings.compare === 'commit' && s.heads.has(f.filePath) ? s.heads.get(f.filePath) : s.bases.get(f.filePath)
+  if (f.cum && f.cum.n === f.changes.length && f.cum.content === f.content && f.cum.fresh === fresh && f.cum.base === base) return f.cum.change
 
   // Whole session: the content before the session first touched the file
   // against now – like git diff, also catches edits missing from the log.
   if (typeof base === 'string') {
     const change = { kind: base === '' ? 'create' : 'update', hunks: diffLines(base, f.content) }
-    f.cum = { n: f.changes.length, content: f.content, fresh, change }
+    f.cum = { n: f.changes.length, content: f.content, fresh, base, change }
     return change
   }
   if (f.changes.length < 2) return null
@@ -1001,7 +1002,7 @@ function combined(f) {
   let size = 0
   for (const h of change.hunks) for (const l of h.lines) if (l[0] !== ' ') size++
   if (size > f.added + f.removed) change = null
-  f.cum = { n: f.changes.length, content: f.content, fresh, change }
+  f.cum = { n: f.changes.length, content: f.content, fresh, base, change }
   return change
 }
 
@@ -1576,9 +1577,10 @@ events.addEventListener('reset', e => {
   const snap = JSON.parse(e.data)
   const next = new Map()
   for (const si of snap.sessions) {
-    const { changes, bases, nows, ...info } = si
+    const { changes, bases, nows, heads, ...info } = si
     const s = newSession(info)
     s.bases = new Map(Object.entries(bases || {}))
+    s.heads = new Map(Object.entries(heads || {}))
     s.nows = new Map(Object.entries(nows || {}))
     s.all = []
     for (const c of changes) remember(s, c)
@@ -1605,6 +1607,19 @@ events.addEventListener('reset', e => {
   els.list.innerHTML = ''
   renderAll()
   buddy.wake(s && s.last ? s.last.ts : 0)
+})
+
+// A commit happened: new HEAD versions for that repo's files
+events.addEventListener('heads', e => {
+  const { sessionId: sid, heads } = JSON.parse(e.data)
+  const s = sessions.get(sid)
+  if (!s) return
+  for (const [file, text] of Object.entries(heads)) s.heads.set(file, text)
+  if (settings.compare === 'commit' && sid === sessionId) {
+    renderList()
+    renderJumpbar()
+    renderMain()
+  }
 })
 
 events.addEventListener('repo', e => {
@@ -1636,6 +1651,7 @@ function receive(sid, c) {
     sessions.set(sid, s)
   }
   if ('base' in c && !s.bases.has(c.filePath)) s.bases.set(c.filePath, c.base)
+  if (typeof c.head === 'string' && !s.heads.has(c.filePath)) s.heads.set(c.filePath, c.head)
   s.nows.delete(c.filePath) // a live change brings the current content
   remember(s, c)
   if (!shownChange(sid, c)) return // before this session's fresh start

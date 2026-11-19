@@ -478,6 +478,7 @@ function rememberBase(s, c, before) {
   if (base === null) base = typeof before === 'string' && before.length <= MAX_AFTER ? before : null
   s.bases.set(c.filePath, base)
   c.base = base // sent along with this first change
+  c.head = headText(c.filePath)
 }
 
 /**
@@ -515,6 +516,51 @@ function textAtSessionStart(s, file) {
   } catch {
     return null
   }
+}
+
+/**
+ * The file in the repo's current HEAD commit: '' if it isn't committed, null
+ * outside git or if unknown. Base for "Compare with: Last commit".
+ */
+const commitCache = new Map() // "root\0sha\0rel" -> text
+function headText(file) {
+  const root = repoFor(path.dirname(file))
+  if (!root) return null
+  const git = args =>
+    execFileSync('git', ['--no-optional-locks', ...args], {
+      cwd: root,
+      timeout: 3000,
+      maxBuffer: MAX_AFTER + 1,
+      stdio: ['ignore', 'pipe', 'ignore'],
+      windowsHide: true,
+    })
+  try {
+    const sha = git(['rev-parse', '--verify', '-q', 'HEAD']).toString().trim()
+    const rel = path.relative(root, file).split(path.sep).join('/')
+    const key = `${root}\0${sha}\0${rel}`
+    if (commitCache.has(key)) return commitCache.get(key)
+    let text = ''
+    if (git(['ls-tree', '--name-only', sha, '--', rel]).toString().trim()) {
+      const buf = git(['show', `${sha}:${rel}`])
+      text = buf.length > MAX_AFTER || buf.includes(0) ? null : normText(buf.toString('utf8'))
+    }
+    if (commitCache.size > 2000) commitCache.clear()
+    commitCache.set(key, text)
+    return text
+  } catch {
+    return null
+  }
+}
+
+/** HEAD versions of a session's files (all, or only those in one repo). */
+function headContents(s, root = null) {
+  const out = {}
+  for (const file of s.bases.keys()) {
+    if (root && repoFor(path.dirname(file)) !== root) continue
+    const t = headText(file)
+    if (t !== null) out[file] = t
+  }
+  return out
 }
 
 /** Reads new complete lines of a log file. */
@@ -624,8 +670,9 @@ function snapshotV2() {
   return {
     sessions: [...sessions.values()].map(s => ({
       ...sessionInfo(s),
-      changes: slimChanges(s.changes).map(c => ({ ...c, base: undefined })),
+      changes: slimChanges(s.changes).map(c => ({ ...c, base: undefined, head: undefined })),
       bases: Object.fromEntries(s.bases),
+      heads: headContents(s),
       nows: currentContents(s),
     })),
     repos: [...repos.values()].map(repoInfo),
@@ -828,9 +875,11 @@ async function scanRepo(s, root, sink) {
     else s.contents.set(file, after)
     s.git.count++
   }
+  const committed = st.ready && st.head && head && st.head !== head
   st.dirty = dirty
   st.head = head
   st.ready = true
+  if (committed) broadcast(2, 'heads', { sessionId: s.id, heads: headContents(s, root) })
 }
 
 async function gitScan(s, roots) {

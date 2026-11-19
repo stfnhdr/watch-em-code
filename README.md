@@ -45,7 +45,9 @@ dependencies**. `npm install` is not part of this story.
 - **What really changed, like `git diff`.** Each file shows everything the session changed in it
   as one diff – several edits combined, against the committed state when the session started
   (outside git: the content before the first edit). The newest edit is still animated.
-  *Settings → Marks → Latest edit* marks only the newest edit instead.
+  *Settings → Compare with → Last commit* compares against each repo's latest commit instead,
+  exactly like VS Code – after a commit only what came since shows up.
+  *Settings → Marks → Latest edit* marks only the newest edit.
 - **Fresh start.** Long session, then a PR, then review comments? Press `c` (or the broom) and
   the tab only shows what changed from now on – again combined per file. Earlier changes are
   just hidden: closing the *since* pill brings back the whole session.
