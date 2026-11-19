@@ -1,11 +1,11 @@
 'use strict'
-// Reine Ansicht: zeigt die Dateien so, wie der Agent sie gerade verändert.
-// Bearbeiten ist bewusst nicht möglich. Zwei Ansichten mit gleichem Funktionsumfang:
-//   Editor – Ordnerbaum + ganze Datei, Änderungen im Rand (Xcode-artig)
-//   Karten – Dateikarten + Diff-Blöcke aller Änderungen einer Datei
+// Read-only view: shows files the way the agent is changing them right now.
+// Editing is deliberately not possible. Two views with the same features:
+//   Editor – folder tree + whole file, changes marked in the gutter (Xcode-like)
+//   Cards  – file cards + diff blocks of all changes to a file
 
-const BUSY_MS = 4000 // so lange gilt eine Session als „gerade in Arbeit“
-const GHOST_MS = 2600 // gelöschte Zeilen bleiben so lange sichtbar
+const BUSY_MS = 4000 // a session counts as "busy" for this long
+const GHOST_MS = 2600 // deleted lines stay visible for this long
 const STAGGER_MS = 20
 const STAGGER_MAX = 50
 const MAX_ROWS = 20000
@@ -27,7 +27,7 @@ const els = {
 const esc = Highlight.esc
 
 // ---------------------------------------------------------------------------
-// Einstellungen (bleiben im Browser gespeichert)
+// Settings (stored in the browser)
 
 const DEFAULTS = { view: 'editor', theme: 'system', buddy: true, diff: 'inline' }
 const settings = { ...DEFAULTS }
@@ -46,7 +46,7 @@ const darkQuery = matchMedia('(prefers-color-scheme: dark)')
 function applyTheme() {
   const t = settings.theme === 'system' ? (darkQuery.matches ? 'dark' : 'light') : settings.theme
   document.documentElement.dataset.theme = t
-  // In der Mac- bzw. Windows-App: Titelleiste des Fensters mitfärben
+  // In the Mac/Windows app: tint the window title bar to match
   try {
     window.webkit?.messageHandlers?.whc?.postMessage({ theme: t })
     window.chrome?.webview?.postMessage({ theme: t })
@@ -92,22 +92,22 @@ document.addEventListener('click', e => {
 })
 
 // ---------------------------------------------------------------------------
-// Zustand
+// State
 
 /** id -> { info, files: Map<path, File>, last: change } */
 let sessions = new Map()
-let sessionId = null // gewählte Session
-let selected = null // gewählte Datei (filePath)
+let sessionId = null // selected session
+let selected = null // selected file (filePath)
 let follow = true
 let connected = false
-/** Repo-Wurzel -> { name, branch } */
+/** repo root -> { name, branch } */
 let repos = new Map()
 
 function newSession(info) {
   return { info, files: new Map(), last: null }
 }
 
-/** Datei: { filePath, rel, kind, added, removed, changes[], content, last, repo } */
+/** File: { filePath, rel, kind, added, removed, changes[], content, last, repo } */
 function addChange(s, c) {
   let f = s.files.get(c.filePath)
   if (!f) {
@@ -120,7 +120,7 @@ function addChange(s, c) {
   f.last = Math.max(f.last, c.ts)
   f.rel = c.rel
   if (c.repo !== undefined) f.repo = c.repo
-  f.content = c.after // null, wenn unbekannt: dann nur die geänderten Stellen
+  f.content = c.after // null if unknown: then only the changed parts are shown
   if (!s.last || c.ts >= s.last.ts) s.last = c
   return f
 }
@@ -146,7 +146,7 @@ function pickDefaultSession() {
 }
 
 // ---------------------------------------------------------------------------
-// Hilfen
+// Helpers
 
 function split(rel) {
   const i = rel.lastIndexOf('/')
@@ -155,16 +155,16 @@ function split(rel) {
 
 function ago(ts) {
   const s = Math.max(0, Math.round((Date.now() - ts) / 1000))
-  if (s < 10) return 'gerade eben'
-  if (s < 60) return `vor ${s} s`
+  if (s < 10) return 'just now'
+  if (s < 60) return `${s}s ago`
   const m = Math.round(s / 60)
-  if (m < 60) return `vor ${m} min`
+  if (m < 60) return `${m} min ago`
   const h = Math.round(m / 60)
-  if (h < 24) return `vor ${h} h`
-  return new Date(ts).toLocaleDateString('de-DE')
+  if (h < 24) return `${h}h ago`
+  return new Date(ts).toLocaleDateString()
 }
 
-const kindWord = (f, c) => (c.kind === 'create' && f.changes[0] === c ? 'angelegt' : 'geändert')
+const kindWord = (f, c) => (c.kind === 'create' && f.changes[0] === c ? 'created' : 'modified')
 
 const ICON_COLORS = {
   js: '#d6b35a', mjs: '#d6b35a', cjs: '#d6b35a', jsx: '#d6b35a',
@@ -185,7 +185,7 @@ const folderIcon = `<svg class="icon" width="15" height="12" viewBox="0 0 15 12"
   <path d="M1.5.5h4l1.5 1.5h6.5a1 1 0 0 1 1 1v7.5a1 1 0 0 1-1 1h-12a1 1 0 0 1-1-1V1.5a1 1 0 0 1 1-1z" fill="#7a9cc6" fill-opacity=".35" stroke="#7a9cc6" stroke-opacity=".7"/></svg>`
 
 // ---------------------------------------------------------------------------
-// Titelleiste: Session-Tabs und Live
+// Title bar: session tabs and live
 
 function renderSessions(pingId) {
   const now = Date.now()
@@ -200,7 +200,7 @@ function renderSessions(pingId) {
         s.info.id === pingId ? 'ping' : '',
       ].join(' ')
       const r = s.info.repo && repos.get(s.info.repo)
-      const title = [s.info.cwd, r && r.branch ? `Branch: ${r.branch}` : '', `${s.files.size} Dateien geändert`]
+      const title = [s.info.cwd, r && r.branch ? `Branch: ${r.branch}` : '', `${s.files.size} ${s.files.size === 1 ? 'file' : 'files'} changed`]
         .filter(Boolean)
         .join('\n')
       const proj = s.info.title && s.info.project ? `<span class="proj">${esc(s.info.project)}</span>` : ''
@@ -222,16 +222,16 @@ els.sessions.addEventListener('click', e => {
 function renderLive() {
   els.live.classList.toggle('on', follow && connected)
   els.live.classList.toggle('offline', !connected)
-  els.liveLabel.textContent = !connected ? 'Getrennt' : follow ? 'Live' : 'Live folgen'
+  els.liveLabel.textContent = !connected ? 'Disconnected' : follow ? 'Live' : 'Follow live'
 }
 
 // ---------------------------------------------------------------------------
-// Navigator links: Ordnerbaum (Editor) oder Karten
+// Navigator on the left: folder tree (editor) or cards
 
 function renderList(flashPath) {
   const s = cur()
   if (!s || s.files.size === 0) {
-    els.list.innerHTML = `<div class="empty-list">Noch keine Änderungen in dieser Session.</div>`
+    els.list.innerHTML = `<div class="empty-list">No changes in this session yet.</div>`
     return
   }
   els.list.querySelector('.empty-list')?.remove()
@@ -258,7 +258,7 @@ function renderTree(s, flashPath) {
   const walk = (node, depth) => {
     const dirs = [...node.dirs.entries()].sort((a, b) => a[0].localeCompare(b[0]))
     for (let [name, child] of dirs) {
-      // Ordnerketten mit nur einem Unterordner zusammenfassen (src/components)
+      // Collapse folder chains with a single subfolder (src/components)
       while (child.files.length === 0 && child.dirs.size === 1) {
         const [n2, c2] = [...child.dirs.entries()][0]
         name += '/' + n2
@@ -290,7 +290,7 @@ function cardHtml(f, width) {
   return `
     <div class="row1">
       <span class="name">${esc(name)}</span>
-      <span class="badge">${f.kind === 'create' ? 'neu' : 'geändert'}</span>
+      <span class="badge">${f.kind === 'create' ? 'new' : 'modified'}</span>
     </div>
     <div class="dir"><span dir="ltr">${dir ? esc(dir + '/') : '&nbsp;'}</span></div>
     <div class="stats">
@@ -302,7 +302,7 @@ function cardHtml(f, width) {
     </div>`
 }
 
-/** Karten bleiben als Elemente erhalten, damit Balken wachsen und Karten aufleuchten. */
+/** Cards are kept as elements so bars can grow and cards can light up. */
 function renderCards(s, flashPath) {
   for (const n of els.list.querySelectorAll(':scope > :not(.card)')) n.remove()
   const list = [...s.files.values()].sort((a, b) => b.last - a.last)
@@ -318,7 +318,7 @@ function renderCards(s, flashPath) {
       el.className = 'card'
       el.dataset.path = f.filePath
       el.title = f.rel
-      el.innerHTML = cardHtml({ ...f, added: 0, removed: 0 }, 0) // Balken wächst von 0
+      el.innerHTML = cardHtml({ ...f, added: 0, removed: 0 }, 0) // bar grows from 0
     }
     existing.delete(f.filePath)
     el.classList.toggle('create', f.kind === 'create')
@@ -337,7 +337,7 @@ function renderCards(s, flashPath) {
     })
     if (f.filePath === flashPath) {
       el.classList.remove('flash')
-      void el.offsetWidth // Animation neu starten
+      void el.offsetWidth // restart animation
       el.classList.add('flash')
     }
   })
@@ -350,13 +350,13 @@ els.list.addEventListener('click', e => {
 })
 
 // ---------------------------------------------------------------------------
-// Pfadzeile mit Branch
+// Path bar with branch
 
 const BRANCH_ICON = `<svg width="11" height="13" viewBox="0 0 11 13" fill="none" stroke="currentColor" stroke-width="1.3">
   <circle cx="3" cy="2.5" r="1.6"/><circle cx="3" cy="10.5" r="1.6"/><circle cx="8.5" cy="4.5" r="1.6"/>
   <path d="M3 4.1v4.8M8.5 6.1c0 2-2 2.4-5.2 2.9"/></svg>`
 
-/** Branch des Repos, in dem die Datei liegt; bei Unter-Repos mit Repo-Name. */
+/** Branch of the repo the file lives in; nested repos also show the repo name. */
 function branchHtml(s, f) {
   const r = f.repo && repos.get(f.repo)
   if (!r || !r.branch) return ''
@@ -381,27 +381,27 @@ function renderJumpbar() {
   els.jumpbar.innerHTML =
     parts.map((p, i) => `<span class="${i === parts.length - 1 ? 'cur' : ''}">${esc(p)}</span>`).join('<span class="sep">›</span>') +
     `<span class="spacer"></span>${hintHtml(last)}${branchHtml(s, f)}<span class="meta">${
-      f.changes.length === 1 ? (f.kind === 'create' ? 'angelegt' : '1 Änderung') : `${f.changes.length} Änderungen`
+      f.changes.length === 1 ? (f.kind === 'create' ? 'created' : '1 change') : `${f.changes.length} changes`
     } · ` +
     `<span class="when" data-ts="${last.ts}">${ago(last.ts)}</span> · ` +
     `<span class="plus">+${last.added}</span> <span class="minus">−${last.removed}</span></span>`
 }
 
 // ---------------------------------------------------------------------------
-// Diff-Modus: Neu, Inline oder Nebeneinander
+// Diff mode: new, inline or side by side
 
 const SPLIT_MIN_WIDTH = 900
 
-/** Tatsächlicher Modus für eine Änderung, mit Hinweis, falls abweichend. */
+/** Actual mode for a change, with a note if it differs from the setting. */
 function diffMode(c) {
   const m = settings.diff
   if (m !== 'split') return { mode: m }
-  if (c.kind === 'create') return { mode: 'new', note: 'neue Datei – kein alter Stand' }
-  if (els.view.clientWidth < SPLIT_MIN_WIDTH) return { mode: 'inline', note: 'zu schmal für nebeneinander' }
+  if (c.kind === 'create') return { mode: 'new', note: 'new file – no previous version' }
+  if (els.view.clientWidth < SPLIT_MIN_WIDTH) return { mode: 'inline', note: 'too narrow for side by side' }
   return { mode: 'split' }
 }
 
-/** Alter Inhalt aus neuem Inhalt und Hunks zurückrechnen. */
+/** Reconstruct the old content from the new content and the hunks. */
 function unpatch(after, hunks) {
   const src = after.split('\n')
   const out = []
@@ -421,7 +421,7 @@ function unpatch(after, hunks) {
   return out.join('\n')
 }
 
-/** Zeilen eines Hunks paarweise ausgerichtet: ctx | mod | del | add. */
+/** Lines of a hunk aligned in pairs: ctx | mod | del | add. */
 function alignHunk(h) {
   const rows = []
   let o = h.oldStart
@@ -454,7 +454,7 @@ function alignHunk(h) {
   return rows
 }
 
-/** Ganze Datei alt gegen neu, Zeile für Zeile ausgerichtet. */
+/** Whole file, old against new, aligned line by line. */
 function alignFile(oldLines, newLines, hunks) {
   const rows = []
   let oi = 1
@@ -485,7 +485,7 @@ function alignFile(oldLines, newLines, hunks) {
   return rows
 }
 
-/** Tabelle für die Nebeneinander-Ansicht. rows können Lücken { gap: Zeile } enthalten. */
+/** Table for the side-by-side view. rows may contain gaps { gap: line }. */
 function splitTable(rows, lang, animate) {
   const sl = { block: null }
   const sr = { block: null }
@@ -493,7 +493,7 @@ function splitTable(rows, lang, animate) {
   const out = ['<table class="code split"><colgroup><col class="cl"><col><col class="cl"><col></colgroup>']
   for (const r of rows) {
     if (r.gap) {
-      out.push(`<tr class="gap"><td colspan="4">⋯ ab Zeile ${r.gap}</td></tr>`)
+      out.push(`<tr class="gap"><td colspan="4">⋯ from line ${r.gap}</td></tr>`)
       continue
     }
     const changed = r.t !== 'ctx'
@@ -513,12 +513,12 @@ function splitTable(rows, lang, animate) {
 }
 
 // ---------------------------------------------------------------------------
-// Inhalt: ganze Datei (Editor) oder Diff-Blöcke (Karten)
+// Content: whole file (editor) or diff blocks (cards)
 
 function renderMain(animate, changeId) {
   const f = curFile()
   if (!f) {
-    els.view.innerHTML = `<div class="waiting"><b>Warte auf Code …</b><span>Sobald Claude eine Datei anlegt oder ändert, erscheint sie hier.</span></div>`
+    els.view.innerHTML = `<div class="waiting"><b>Waiting for code …</b><span>As soon as Claude creates or changes a file, it shows up here.</span></div>`
     return
   }
   if (settings.view === 'cards') return renderDiff(f, animate ? changeId : null)
@@ -531,9 +531,9 @@ function renderMain(animate, changeId) {
 function renderEditorSplit(f, c, animate) {
   const lang = Highlight.langOf(f.filePath)
   if (f.content === null) {
-    // Ganzer Inhalt unbekannt: nur die geänderten Stellen nebeneinander
+    // Whole content unknown: show only the changed parts side by side
     els.view.innerHTML =
-      `<div class="notice">Nur die geänderten Stellen – den ganzen Inhalt kennt das Protokoll hier nicht.</div>` +
+      `<div class="notice">Only the changed parts – the log doesn't contain the whole file here.</div>` +
       `<div class="split-wrap">${splitTable(hunkRows(c), lang, animate)}</div>`
     return
   }
@@ -552,7 +552,7 @@ function renderEditorSplit(f, c, animate) {
   }
 }
 
-/** Hunks einer Änderung als ausgerichtete Zeilen mit Lücken dazwischen. */
+/** Hunks of a change as aligned rows with gaps in between. */
 function hunkRows(c) {
   const rows = []
   c.hunks.forEach((h, hi) => {
@@ -562,10 +562,10 @@ function hunkRows(c) {
   return rows
 }
 
-/** Markierungen für den neuen Dateiinhalt aus den Hunks der letzten Änderung. */
+/** Markers for the new file content, from the hunks of the latest change. */
 function markers(c) {
-  const marks = new Map() // Zeile (1-basiert) -> 'add' | 'mod'
-  const ghosts = new Map() // Zeile -> gelöschte Zeilen davor
+  const marks = new Map() // line (1-based) -> 'add' | 'mod'
+  const ghosts = new Map() // line -> deleted lines before it
   let first = null
   for (const h of c.hunks) {
     let n = h.newStart || 1
@@ -615,8 +615,8 @@ function renderEditor(f, animate, showGhosts = true) {
   const out = []
 
   if (f.content === null) {
-    // Kein vollständiger Inhalt bekannt: nur die geänderten Stellen zeigen.
-    out.push(`<div class="notice">Nur die geänderten Stellen – den ganzen Inhalt kennt das Protokoll hier nicht.</div>`)
+    // No full content known: show only the changed parts.
+    out.push(`<div class="notice">Only the changed parts – the log doesn't contain the whole file here.</div>`)
     let count = 0
     c.hunks.forEach((h, hi) => {
       if (hi > 0) out.push(`<div class="hunkgap">⋯</div>`)
@@ -648,7 +648,7 @@ function renderEditor(f, animate, showGhosts = true) {
     if (del) {
       const dstate = { block: null }
       if (animate && showGhosts) for (const d of del) out.push(rowHtml('', 'ghost', Highlight.line(d, lang, dstate)))
-      out.push(`<i data-delmark="${esc(del.join('\n'))}"></i>`) // Keil an der Folgezeile
+      out.push(`<i data-delmark="${esc(del.join('\n'))}"></i>`) // wedge on the following line
     }
     if (i > total) break
     const mark = marks.get(i)
@@ -660,7 +660,7 @@ function renderEditor(f, animate, showGhosts = true) {
     }
     out.push(rowHtml(i, cls, Highlight.line(lines[i - 1], lang, state), delay))
   }
-  if (lines.length > MAX_ROWS) out.push(`<div class="notice">… ${lines.length - MAX_ROWS} weitere Zeilen</div>`)
+  if (lines.length > MAX_ROWS) out.push(`<div class="notice">… ${lines.length - MAX_ROWS} more lines</div>`)
   els.view.innerHTML = out.join('')
 
   for (const m of els.view.querySelectorAll('i[data-delmark]')) {
@@ -668,7 +668,7 @@ function renderEditor(f, animate, showGhosts = true) {
     const target = next && next.classList.contains('row') ? next : m.previousElementSibling
     if (target) {
       target.classList.add('delmark')
-      target.querySelector('.gut').title = 'Gelöscht:\n' + m.dataset.delmark
+      target.querySelector('.gut').title = 'Deleted:\n' + m.dataset.delmark
     }
     m.remove()
   }
@@ -692,7 +692,7 @@ function changeHtml(c, f, isNewest, animate) {
   const { mode } = diffMode(c)
   const meta = `
       <div class="meta">
-        <span class="first">${kindWord(f, c)}</span><span>${new Date(c.ts).toLocaleTimeString('de-DE')}</span>
+        <span class="first">${kindWord(f, c)}</span><span>${new Date(c.ts).toLocaleTimeString()}</span>
         <span class="when" data-ts="${c.ts}">${ago(c.ts)}</span>
         <span><span class="plus">+${c.added}</span> <span class="minus">−${c.removed}</span></span>
       </div>`
@@ -708,7 +708,7 @@ function changeHtml(c, f, isNewest, animate) {
 
   c.hunks.forEach((h, hi) => {
     if (hi > 0 || (h.newStart > 1 && c.kind !== 'create')) {
-      rows.push(`<tr class="gap"><td colspan="${onlyNew ? 3 : 4}">⋯ ab Zeile ${h.newStart}</td></tr>`)
+      rows.push(`<tr class="gap"><td colspan="${onlyNew ? 3 : 4}">⋯ from line ${h.newStart}</td></tr>`)
     }
     let o = h.oldStart
     let n = h.newStart
@@ -753,7 +753,7 @@ function changeHtml(c, f, isNewest, animate) {
   return `
     <div class="change${isNewest ? '' : ' old'}">${meta}
       <table class="code">${rows.join('')}</table>
-      ${hidden ? `<div class="more">… ${hidden} weitere Zeilen ausgeblendet</div>` : ''}
+      ${hidden ? `<div class="more">… ${hidden} more lines hidden</div>` : ''}
     </div>`
 }
 
@@ -764,7 +764,7 @@ function renderDiff(f, animateId) {
 }
 
 // ---------------------------------------------------------------------------
-// Hinweisleiste
+// Toast
 
 let toastTimer
 function toast(html) {
@@ -775,7 +775,7 @@ function toast(html) {
 }
 
 // ---------------------------------------------------------------------------
-// Bedienung
+// Interaction
 
 function renderAll(opts = {}) {
   renderSessions(opts.ping)
@@ -815,7 +815,7 @@ document.addEventListener('keydown', e => {
   } else if (e.key === 'd' && settings.buddy) buddy.demo()
 })
 
-// Nebeneinander hängt von der Breite ab: bei Größenänderung neu zeichnen
+// Side by side depends on the width: redraw on resize
 let resizeTimer
 let lastWide = null
 window.addEventListener('resize', () => {
@@ -830,7 +830,7 @@ window.addEventListener('resize', () => {
   }, 150)
 })
 
-// Zeiten und Session-Punkte regelmäßig auffrischen
+// Refresh times and session dots regularly
 setInterval(() => {
   for (const el of document.querySelectorAll('.when[data-ts]')) el.textContent = ago(Number(el.dataset.ts))
   renderSessions()
@@ -841,7 +841,7 @@ const buddy = Buddy.create(els.buddy)
 applySettings()
 
 // ---------------------------------------------------------------------------
-// Live-Verbindung
+// Live connection
 
 const events = new EventSource('/events?v=2')
 
@@ -904,13 +904,13 @@ events.addEventListener('change', e => {
   }
   const f = addChange(s, c)
 
-  // Gewählte Session ohne eigene Änderungen? Dann zur aktiven wechseln.
+  // Selected session has no changes of its own? Switch to the active one.
   if (follow && (!cur() || cur().files.size === 0)) {
     sessionId = sid
     els.list.innerHTML = ''
   }
   if (sid !== sessionId) {
-    renderSessions(sid) // nur der Punkt der anderen Session blinkt
+    renderSessions(sid) // only the other session's dot blinks
     return
   }
   if (follow) selected = c.filePath

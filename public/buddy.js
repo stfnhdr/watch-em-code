@@ -1,26 +1,26 @@
 'use strict'
-// Der Pixel-Junior: eine kleine eigene Figur mit Mütze und Laptop.
-// Reagiert nur auf Code-Änderungen: tippt, legt Dateien ab, radiert,
-// schläft ein, wenn nichts passiert, und schreckt hoch, wenn es weitergeht.
+// The Pixel Junior: a small original character with a beanie and a laptop.
+// Reacts only to code changes: types, drops new files, erases,
+// falls asleep when nothing happens and startles awake when work resumes.
 
 const Buddy = (() => {
   const SCALE = 5
   const W = 20
   const H = 16
   const COLORS = {
-    P: '#e8c27a', // Bommel
-    h: '#d9a35a', // Mütze
-    H: '#b8843f', // Mützenrand
-    s: '#efc8a0', // Haut
-    c: '#e3a48e', // Wangen
-    b: '#5f9e8f', // Pulli
-    L: '#8d929b', // Laptop
-    D: '#6b7079', // Laptop unten
-    g: '#d8e9e0', // Logo
-    e: '#2b2b31', // Augen
-    m: '#9a5b4f', // Mund
+    P: '#e8c27a', // pompom
+    h: '#d9a35a', // beanie
+    H: '#b8843f', // beanie rim
+    s: '#efc8a0', // skin
+    c: '#e3a48e', // cheeks
+    b: '#5f9e8f', // sweater
+    L: '#8d929b', // laptop
+    D: '#6b7079', // laptop base
+    g: '#d8e9e0', // logo
+    e: '#2b2b31', // eyes
+    m: '#9a5b4f', // mouth
   }
-  // Grundfigur ohne Augen, Hände und Mund
+  // Base figure without eyes, hands and mouth
   const BASE = [
     '.........PP.........',
     '.......hhhhhh.......',
@@ -69,22 +69,22 @@ const Buddy = (() => {
     return `<svg width="${W * SCALE}" height="${H * SCALE}" viewBox="0 0 ${W} ${H}" shape-rendering="crispEdges">${rects}</svg>`
   }
 
-  // Sprechblasen: selten, kurz, nur aus Fakten der Änderung.
+  // Speech bubbles: rare, short, based only on facts about the change.
   const COOLDOWN_MS = 75000
   function remark(c, f, s, ctx) {
     const name = f.rel.split('/').pop()
     const lower = name.toLowerCase()
     const created = [...s.files.values()].filter(x => x.kind === 'create').length
-    if (ctx.wokeUp) return 'Oh! Weiter geht’s.'
-    if (s.files.size === 1 && f.changes.length === 1) return c.kind === 'create' ? 'Erste Datei. Los geht’s!' : 'Und los.'
-    if (c.added >= 150) return `+${c.added} Zeilen am Stück. Mutig.`
-    if (c.removed >= 10 && c.removed > c.added * 2) return 'Mehr gelöscht als geschrieben. Aufräumen!'
-    if ([3, 5, 8].includes(f.changes.length)) return `${f.changes.length}. Runde an ${name}. Knifflige Stelle?`
-    if (c.kind === 'create' && [5, 10, 20].includes(created)) return `Schon ${created} neue Dateien.`
-    if (c.kind === 'create' && /(test|spec)/.test(lower)) return 'Tests! Sehr vernünftig.'
-    if (c.kind === 'create' && /readme|\.md$/.test(lower)) return 'Doku. Selten, aber schön.'
-    if (/\.(css|scss|less)$/.test(lower) && f.changes.length === 1) return 'Jetzt wird’s hübsch.'
-    if (c.added + c.removed === 1) return 'Ein Zeichen hier, ein Zeichen da.'
+    if (ctx.wokeUp) return 'Oh! Back to work.'
+    if (s.files.size === 1 && f.changes.length === 1) return c.kind === 'create' ? 'First file. Here we go!' : 'And off we go.'
+    if (c.added >= 150) return `+${c.added} lines in one go. Bold.`
+    if (c.removed >= 10 && c.removed > c.added * 2) return 'More deleted than written. Cleanup time!'
+    if ([3, 5, 8].includes(f.changes.length)) return `Round ${f.changes.length} on ${name}. Tricky spot?`
+    if (c.kind === 'create' && [5, 10, 20].includes(created)) return `${created} new files already.`
+    if (c.kind === 'create' && /(test|spec)/.test(lower)) return 'Tests! Very sensible.'
+    if (c.kind === 'create' && /readme|\.md$/.test(lower)) return 'Docs. Rare, but lovely.'
+    if (/\.(css|scss|less)$/.test(lower) && f.changes.length === 1) return 'Making it pretty now.'
+    if (c.added + c.removed === 1) return 'A character here, a character there.'
     return null
   }
 
@@ -141,7 +141,7 @@ const Buddy = (() => {
       setTimeout(() => el.remove(), 1600)
     }
 
-    // Takt: Tippen animieren, Zustände wechseln, ab und zu blinzeln/umschauen
+    // Tick: animate typing, switch states, blink or look around now and then
     setInterval(() => {
       const idle = Date.now() - lastChange
       if (mode === 'startle') return
@@ -189,14 +189,14 @@ const Buddy = (() => {
       }
     }
 
-    /** Beim Laden: letzte bekannte Änderung, damit er nicht grundlos tippt. */
+    /** On load: last known change, so he doesn't type for no reason. */
     function wake(ts) {
       lastChange = ts || 0
       if (!ts) lastChange = Date.now() - SLEEP_AFTER / 2
       draw()
     }
 
-    /** Vorführung aller Reaktionen, ohne echte Änderungen (Taste „d“). */
+    /** Demo of all reactions without real changes (key "d"). */
     let demoRunning = false
     function demo() {
       if (demoRunning) return
@@ -204,15 +204,15 @@ const Buddy = (() => {
       const saved = lastChange
       const typing = () => (lastChange = Date.now())
       const steps = [
-        [0, () => (typing(), paper(), say('Erste Datei. Los geht’s!'))],
-        [4500, () => (typing(), say('+240 Zeilen am Stück. Mutig.'))],
-        [9000, () => (typing(), crumbs(), say('Mehr gelöscht als geschrieben. Aufräumen!'))],
-        [13500, () => (typing(), say('3. Runde an app.js. Knifflige Stelle?'))],
-        [18000, () => (typing(), paper(), say('Tests! Sehr vernünftig.'))],
-        [22500, () => (typing(), say('Jetzt wird’s hübsch.'))],
-        [27000, () => (typing(), say('Ein Zeichen hier, ein Zeichen da.'))],
-        [31500, () => (lastChange = Date.now() - SLEEP_AFTER - 1)], // einschlafen
-        [38000, () => (startle(), typing(), setTimeout(() => say('Oh! Weiter geht’s.'), 500))],
+        [0, () => (typing(), paper(), say('First file. Here we go!'))],
+        [4500, () => (typing(), say('+240 lines in one go. Bold.'))],
+        [9000, () => (typing(), crumbs(), say('More deleted than written. Cleanup time!'))],
+        [13500, () => (typing(), say('Round 3 on app.js. Tricky spot?'))],
+        [18000, () => (typing(), paper(), say('Tests! Very sensible.'))],
+        [22500, () => (typing(), say('Making it pretty now.'))],
+        [27000, () => (typing(), say('A character here, a character there.'))],
+        [31500, () => (lastChange = Date.now() - SLEEP_AFTER - 1)], // fall asleep
+        [38000, () => (startle(), typing(), setTimeout(() => say('Oh! Back to work.'), 500))],
         [44000, () => ((lastChange = Math.max(saved, Date.now() - TYPE_FOR - 1)), (demoRunning = false))],
       ]
       for (const [t, fn] of steps) setTimeout(fn, t)

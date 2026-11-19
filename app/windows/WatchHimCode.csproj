@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- Schlanke Windows-App: .NET Framework 4.8 ist in Windows 10/11 eingebaut,
-       die Oberfläche läuft in WebView2 (Edge-Technik, ebenfalls vorinstalliert). -->
+  <!-- Lean Windows app: .NET Framework 4.8 is built into Windows 10/11,
+       the UI runs in WebView2 (Edge technology, also preinstalled). -->
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net48</TargetFramework>

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Watch Him Code – zeigt live die Code-Änderungen laufender Claude-Code-Sessions.
-// Keine Abhängigkeiten, nur Node-Bordmittel.
+// Watch Him Code – shows the code changes of running Claude Code sessions live.
+// No dependencies, Node built-ins only.
 'use strict'
 
 const fs = require('fs')
@@ -12,17 +12,17 @@ const { spawn } = require('child_process')
 const PROJECTS = path.join(os.homedir(), '.claude', 'projects')
 const HOST = '127.0.0.1'
 const START_PORT = Number(process.env.WHC_PORT) || 4777
-const POLL_MS = 600 // neue Zeilen lesen
-const SCAN_MS = 2000 // Sessions suchen
-const ACTIVE_MS = 30 * 60 * 1000 // Session gilt so lange als aktiv
+const POLL_MS = 600 // read new lines
+const SCAN_MS = 2000 // look for sessions
+const ACTIVE_MS = 30 * 60 * 1000 // a session counts as active for this long
 const MAX_SESSIONS = 6
-const MAX_AFTER = 2 * 1024 * 1024 // größere Dateien nur als Diff
+const MAX_AFTER = 2 * 1024 * 1024 // larger files only as diff
 const PUBLIC = path.join(__dirname, 'public')
 
 // ---------------------------------------------------------------------------
-// Protokoll lesen
+// Reading the logs
 
-/** Alle Session-Protokolle: ~/.claude/projects/<projekt>/<session>.jsonl */
+/** All session logs: ~/.claude/projects/<project>/<session>.jsonl */
 function listSessionFiles() {
   const out = []
   let projects = []
@@ -51,7 +51,7 @@ function listSessionFiles() {
   return out
 }
 
-/** Protokolle von Subagenten liegen in <session>/subagents/*.jsonl. */
+/** Subagent logs live in <session>/subagents/*.jsonl. */
 function subagentLogs(s) {
   const dir = path.join(s.dir, s.id, 'subagents')
   try {
@@ -64,7 +64,7 @@ function subagentLogs(s) {
   }
 }
 
-/** Titel, den der User der Session gegeben hat (falls vorhanden). */
+/** Title the user gave the session (if any). */
 function sessionTitle(s) {
   try {
     const o = JSON.parse(fs.readFileSync(path.join(s.dir, s.id, 'custom-title.json'), 'utf8'))
@@ -74,14 +74,14 @@ function sessionTitle(s) {
   }
 }
 
-/** Wendet einen structuredPatch auf den alten Inhalt an. */
+/** Applies a structuredPatch to the old content. */
 function applyPatch(original, hunks) {
   const src = original.split('\n')
   const out = []
-  let i = 0 // Index in src
+  let i = 0 // index into src
   for (const h of hunks) {
     const start = Math.max(0, h.oldStart - 1 + (h.oldLines === 0 ? 1 : 0))
-    if (start < i) return null // Hunks nicht sortiert oder überlappend
+    if (start < i) return null // hunks unsorted or overlapping
     while (i < start && i < src.length) out.push(src[i++])
     for (const l of h.lines) {
       if (l[0] === '+') out.push(l.slice(1))
@@ -95,7 +95,7 @@ function applyPatch(original, hunks) {
   return out.join('\n')
 }
 
-/** Erstellt aus einem toolUseResult eine Änderung, oder null. */
+/** Turns a toolUseResult into a change, or null. */
 function toChange(entry, seq) {
   const r = entry && entry.toolUseResult
   if (!r || typeof r !== 'object' || Array.isArray(r)) return null
@@ -117,7 +117,7 @@ function toChange(entry, seq) {
 
   const isCreate = r.type === 'create' || (r.originalFile === null && 'content' in r)
 
-  // Neue Datei ohne Patch: Inhalt als lauter +-Zeilen.
+  // New file without a patch: content as all-"+" lines.
   if (hunks.length === 0) {
     const text =
       typeof r.content === 'string'
@@ -132,7 +132,7 @@ function toChange(entry, seq) {
     hunks = [{ oldStart: 0, oldLines: 0, newStart: 1, newLines: lines.length, lines: lines.map(l => '+' + l) }]
   }
 
-  // Inhalt der Datei nach der Änderung, für die Editor-Ansicht.
+  // File content after the change, for the editor view.
   let after = null
   if (typeof r.content === 'string' && (r.type === 'create' || r.type === 'update')) after = r.content
   else if (typeof r.originalFile === 'string' && Array.isArray(r.structuredPatch)) after = applyPatch(r.originalFile, hunks)
@@ -171,18 +171,18 @@ function displayPath(file, cwd) {
 }
 
 // ---------------------------------------------------------------------------
-// Git: Branch je Repo, direkt aus .git/HEAD gelesen (kein git-Aufruf nötig).
-// Gesucht wird vom Ordner der Datei aufwärts das nächste .git – bei
-// Unter-Repos und Submodulen ist das automatisch das innerste.
+// Git: branch per repo, read straight from .git/HEAD (no git call needed).
+// We search upwards from the file's folder for the nearest .git – for
+// nested repos and submodules that is automatically the innermost one.
 
-const repos = new Map() // Wurzelordner -> { root, name, headFile, branch }
-const dirRepo = new Map() // Ordner -> Wurzelordner | null (Cache)
+const repos = new Map() // root folder -> { root, name, headFile, branch }
+const dirRepo = new Map() // folder -> root folder | null (cache)
 
 function readBranch(headFile) {
   try {
     const head = fs.readFileSync(headFile, 'utf8').trim()
     const m = /^ref:\s*refs\/heads\/(.+)$/.exec(head)
-    return m ? m[1] : head.slice(0, 7) // ohne Branch: kurzer Commit
+    return m ? m[1] : head.slice(0, 7) // detached: short commit
   } catch {
     return ''
   }
@@ -203,7 +203,7 @@ function repoFor(dir) {
     if (st) {
       let gitdir = g
       if (st.isFile()) {
-        // Submodul oder Worktree: .git ist eine Datei mit Verweis
+        // submodule or worktree: .git is a file pointing elsewhere
         try {
           const m = /^gitdir:\s*(.+)$/m.exec(fs.readFileSync(g, 'utf8'))
           gitdir = m ? path.resolve(d, m[1].trim()) : null
@@ -228,7 +228,7 @@ function repoFor(dir) {
   return root
 }
 
-/** Branch-Wechsel erkennen; neue .git-Ordner gelegentlich neu suchen. */
+/** Detect branch switches; occasionally look for new .git folders. */
 let gitTick = 0
 function checkRepos() {
   for (const r of repos.values()) {
@@ -242,7 +242,7 @@ function checkRepos() {
 }
 
 // ---------------------------------------------------------------------------
-// Beobachtete Sessions
+// Watched sessions
 
 let seq = 0
 /** id -> { id, file, dir, mtime, cwd, title, changes[], logs: Map } */
@@ -258,7 +258,7 @@ function addSession(info) {
   return s
 }
 
-/** Passt ein Dateiinhalt zu den neuen Zeilen der Hunks? */
+/** Does a file content match the new lines of the hunks? */
 function matches(text, hunks) {
   const lines = text.split('\n')
   for (const h of hunks) {
@@ -273,9 +273,9 @@ function matches(text, hunks) {
 }
 
 /**
- * Manche Einträge enthalten den alten Inhalt nicht (originalFile = null).
- * Dann den zuletzt bekannten Stand fortschreiben oder, als letzte Möglichkeit,
- * die Datei von der Platte lesen – aber nur, wenn sie zur Änderung passt.
+ * Some entries don't contain the old content (originalFile = null).
+ * Then carry the last known version forward or, as a last resort,
+ * read the file from disk – but only if it matches the change.
  */
 function fillAfter(s, c) {
   if (c.after === null) {
@@ -297,7 +297,7 @@ function fillAfter(s, c) {
   else s.contents.delete(c.filePath)
 }
 
-/** Liest neue vollständige Zeilen einer Protokolldatei. */
+/** Reads new complete lines of a log file. */
 function readNew(s, file, sink) {
   let log = s.logs.get(file)
   if (!log) {
@@ -323,7 +323,7 @@ function readNew(s, file, sink) {
     fs.readSync(fd, buf, 0, len, log.offset)
     log.offset = size
     const lines = (log.rest + buf.toString('utf8')).split('\n')
-    log.rest = lines.pop() // unvollständige letzte Zeile aufheben
+    log.rest = lines.pop() // keep the incomplete last line
     for (const line of lines) {
       if (!line.includes('toolUseResult') && !line.includes('"cwd"')) continue
       let entry
@@ -359,7 +359,7 @@ function sessionInfo(s) {
   }
 }
 
-/** Snapshot ohne Dateiinhalt bei älteren Änderungen (nur der letzte Stand je Datei). */
+/** Snapshot without file content for older changes (only the latest version per file). */
 function slimChanges(changes) {
   const latest = new Map()
   for (const c of changes) latest.set(c.filePath, c.id)
@@ -373,7 +373,7 @@ function snapshotV2() {
   }
 }
 
-// Für die eingefrorene Basis-Ansicht (/base/): nur die zuletzt aktive Session.
+// For the frozen base view (/base/): only the most recently active session.
 function primary() {
   let best = null
   for (const s of sessions.values()) if (!best || s.mtime > best.mtime) best = s
@@ -440,7 +440,7 @@ function scan() {
   const p = primary()
   if (p && p !== lastPrimary) {
     lastPrimary = p
-    console.log(`Aktivste Session: ${p.id}`)
+    console.log(`Most active session: ${p.id}`)
     broadcast(1, 'reset', snapshotV1())
   }
 }
@@ -488,7 +488,7 @@ const server = http.createServer((req, res) => {
     return
   }
 
-  // Eingefrorene Ansichten liegen als Unterordner in public/ (z. B. /base/).
+  // Frozen views live as subfolders in public/ (e.g. /base/).
   if (/^\/[\w-]+$/.test(url.pathname) && fs.existsSync(path.join(PUBLIC, url.pathname, 'index.html'))) {
     res.writeHead(301, { Location: url.pathname + '/' }).end()
     return
@@ -502,7 +502,7 @@ const server = http.createServer((req, res) => {
   }
   fs.readFile(file, (err, body) => {
     if (err) {
-      res.writeHead(404).end('Nicht gefunden')
+      res.writeHead(404).end('Not found')
       return
     }
     res.writeHead(200, {
@@ -513,14 +513,14 @@ const server = http.createServer((req, res) => {
   })
 })
 
-// Hält die Verbindungen offen.
+// Keeps the connections open.
 setInterval(() => {
   for (const c of clients) c.res.write(': ping\n\n')
 }, 20000).unref()
 
 // ---------------------------------------------------------------------------
-// Fenster öffnen: wenn möglich als eigenes App-Fenster (Chrome, Edge, Brave,
-// Chromium im --app-Modus, ohne Adressleiste und Tabs), sonst im Standardbrowser.
+// Opening a window: if possible as its own app window (Chrome, Edge, Brave,
+// Chromium in --app mode, no address bar or tabs), otherwise the default browser.
 
 const exists = p => {
   try {
@@ -594,7 +594,7 @@ function openWindow(url) {
   openBrowser(url)
 }
 
-/** Läuft auf diesem Port schon Watch Him Code? */
+/** Is Watch Him Code already running on this port? */
 function isOurs(port) {
   return new Promise(resolve => {
     const req = http.get({ host: HOST, port, path: '/whc', timeout: 800 }, res => {
@@ -614,9 +614,9 @@ function listen(port) {
   server.once('error', async err => {
     if (err.code !== 'EADDRINUSE') throw err
     if (await isOurs(port)) {
-      // Schon gestartet: nur ein Fenster öffnen, keinen zweiten Server.
+      // Already running: just open a window, no second server.
       const url = `http://${HOST}:${port}`
-      console.log(`Watch Him Code läuft schon auf ${url} – öffne nur das Fenster.`)
+      console.log(`Watch Him Code is already running at ${url} – opening a window only.`)
       openWindow(url)
       setTimeout(() => process.exit(0), 300)
     } else if (port < START_PORT + 20) listen(port + 1)
@@ -624,11 +624,11 @@ function listen(port) {
   })
   server.listen(port, HOST, () => {
     const url = `http://${HOST}:${port}`
-    console.log(`Watch Him Code läuft auf ${url}  (Beenden mit Strg+C)`)
+    console.log(`Watch Him Code is running at ${url}  (stop with Ctrl+C)`)
     scan()
     setInterval(poll, POLL_MS)
     setInterval(scan, SCAN_MS)
-    // Von der Mac-/Windows-App gestartet: zusammen mit ihr beenden
+    // Started by the Mac/Windows app: exit together with it
     const parent = Number(process.env.WHC_PARENT_PID) || 0
     if (parent)
       setInterval(() => {

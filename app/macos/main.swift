@@ -1,6 +1,6 @@
-// Watch Him Code – schlanke Mac-App.
-// Startet server.js unsichtbar im Hintergrund, zeigt die Oberfläche in einem
-// eigenen Fenster (WKWebView) und beendet den Server beim Schließen wieder.
+// Watch Him Code – lean Mac app.
+// Starts server.js invisibly in the background, shows the UI in its own
+// window (WKWebView) and stops the server again when closed.
 
 import Cocoa
 import WebKit
@@ -26,7 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         server?.terminate()
     }
 
-    // MARK: Fenster
+    // MARK: Window
 
     func buildWindow() {
         let config = WKWebViewConfiguration()
@@ -45,12 +45,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         window.contentView = webView
         applyTheme(NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? "dark" : "light")
         window.center()
-        window.setFrameAutosaveName("WatchHimCodeMain") // Größe und Position merken
+        window.setFrameAutosaveName("WatchHimCodeMain") // remember size and position
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    /** Titelleiste und Hintergrund an den Farbmodus der Seite anpassen. */
+    /** Match title bar and background to the page's theme. */
     func applyTheme(_ theme: String) {
         let dark = theme == "dark"
         window.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
@@ -68,31 +68,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         let appItem = NSMenuItem()
         main.addItem(appItem)
         let appMenu = NSMenu()
-        appMenu.addItem(withTitle: "Über Watch Him Code", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        appMenu.addItem(withTitle: "About Watch Him Code", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "Watch Him Code ausblenden", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        appMenu.addItem(withTitle: "Hide Watch Him Code", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "Watch Him Code beenden", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenu.addItem(withTitle: "Quit Watch Him Code", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appItem.submenu = appMenu
 
         let editItem = NSMenuItem()
         main.addItem(editItem)
-        let edit = NSMenu(title: "Bearbeiten")
-        edit.addItem(withTitle: "Kopieren", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
-        edit.addItem(withTitle: "Alles auswählen", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        let edit = NSMenu(title: "Edit")
+        edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
         editItem.submenu = edit
 
         let viewItem = NSMenuItem()
         main.addItem(viewItem)
-        let view = NSMenu(title: "Darstellung")
-        view.addItem(withTitle: "Neu laden", action: #selector(reload), keyEquivalent: "r")
+        let view = NSMenu(title: "View")
+        view.addItem(withTitle: "Reload", action: #selector(reload), keyEquivalent: "r")
         viewItem.submenu = view
 
         let windowItem = NSMenuItem()
         main.addItem(windowItem)
-        let win = NSMenu(title: "Fenster")
-        win.addItem(withTitle: "Schließen", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
-        win.addItem(withTitle: "Im Dock ablegen", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
+        let win = NSMenu(title: "Window")
+        win.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        win.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
         windowItem.submenu = win
         NSApp.windowsMenu = win
 
@@ -104,14 +104,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
     // MARK: Server
 
     func start() {
-        // Läuft schon ein Server (z. B. per `node server.js`)? Dann nur anzeigen.
+        // Is a server already running (e.g. via `node server.js`)? Then just show it.
         if isOurs(port: defaultPort) {
             show(URL(string: "http://127.0.0.1:\(defaultPort)")!)
             return
         }
         guard let node = findNode() else {
-            fail("Node.js wurde nicht gefunden.",
-                 "Watch Him Code braucht Node.js 18 oder neuer. Installieren von nodejs.org und die App neu starten.")
+            fail("Node.js was not found.",
+                 "Watch Him Code needs Node.js 18 or newer. Install it from nodejs.org and restart the app.")
             return
         }
         guard let dir = Bundle.main.resourceURL?.appendingPathComponent("server") else { return }
@@ -122,7 +122,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         p.currentDirectoryURL = dir
         var env = ProcessInfo.processInfo.environment
         env["WHC_NO_OPEN"] = "1"
-        env["WHC_PARENT_PID"] = String(getpid()) // Server beendet sich, falls die App abstürzt
+        env["WHC_PARENT_PID"] = String(getpid()) // server exits if the app crashes
         p.environment = env
 
         let pipe = Pipe()
@@ -138,13 +138,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
             }
         }
         p.terminationHandler = { _ in
-            if !shown { self.fail("Der Server konnte nicht starten.", "Bitte im Terminal `node server.js` ausprobieren.") }
+            if !shown { self.fail("The server could not start.", "Please try `node server.js` in the Terminal.") }
         }
         do {
             try p.run()
             server = p
         } catch {
-            fail("Der Server konnte nicht starten.", error.localizedDescription)
+            fail("The server could not start.", error.localizedDescription)
         }
     }
 
@@ -165,7 +165,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         }
     }
 
-    /** Antwortet auf dem Port schon Watch Him Code? */
+    /** Is Watch Him Code already answering on this port? */
     func isOurs(port: Int) -> Bool {
         guard let url = URL(string: "http://127.0.0.1:\(port)/whc") else { return false }
         var ok = false
@@ -180,7 +180,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         return ok
     }
 
-    /** Node suchen: zuerst wie im Terminal (Login-Shell), dann übliche Orte. */
+    /** Find Node: first like the Terminal does (login shell), then common locations. */
     func findNode() -> String? {
         let fm = FileManager.default
         let shell = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"

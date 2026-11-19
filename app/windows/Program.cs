@@ -1,6 +1,6 @@
-// Watch Him Code – schlanke Windows-App.
-// Startet server.js unsichtbar im Hintergrund, zeigt die Oberfläche in einem
-// eigenen Fenster (WebView2) und beendet den Server beim Schließen wieder.
+// Watch Him Code – lean Windows app.
+// Starts server.js invisibly in the background, shows the UI in its own
+// window (WebView2) and stops the server again when closed.
 
 using System;
 using System.Diagnostics;
@@ -73,7 +73,7 @@ namespace WatchHimCode
             catch (Exception)
             {
                 var answer = MessageBox.Show(this,
-                    "Für Watch Him Code wird die „Microsoft Edge WebView2 Runtime“ benötigt.\n\nJetzt die Download-Seite öffnen?",
+                    "Watch Him Code needs the \"Microsoft Edge WebView2 Runtime\".\n\nOpen the download page now?",
                     "Watch Him Code", MessageBoxButtons.YesNo, MessageBoxIcon.Information);
                 if (answer == DialogResult.Yes)
                     Process.Start(new ProcessStartInfo("https://developer.microsoft.com/microsoft-edge/webview2/") { UseShellExecute = true });
@@ -84,7 +84,7 @@ namespace WatchHimCode
             web.CoreWebView2.Settings.IsStatusBarEnabled = false;
             web.CoreWebView2.WebMessageReceived += (s, e) =>
             {
-                // Die Seite meldet ihren Farbmodus: Titelleiste anpassen
+                // The page reports its theme: adjust the title bar
                 string json = e.WebMessageAsJson ?? "";
                 if (json.Contains("\"theme\"")) SetDarkTitleBar(json.Contains("\"dark\""));
             };
@@ -111,7 +111,7 @@ namespace WatchHimCode
 
         void Start()
         {
-            // Läuft schon ein Server (z. B. per `node server.js`)? Dann nur anzeigen.
+            // Is a server already running (e.g. via `node server.js`)? Then just show it.
             if (IsOurs(DefaultPort))
             {
                 Navigate($"http://127.0.0.1:{DefaultPort}");
@@ -120,8 +120,8 @@ namespace WatchHimCode
             string node = FindNode();
             if (node == null)
             {
-                Fail("Node.js wurde nicht gefunden.",
-                     "Watch Him Code braucht Node.js 18 oder neuer. Installieren von nodejs.org und die App neu starten.");
+                Fail("Node.js was not found.",
+                     "Watch Him Code needs Node.js 18 or newer. Install it from nodejs.org and restart the app.");
                 return;
             }
             string dir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "server");
@@ -136,7 +136,7 @@ namespace WatchHimCode
                 StandardErrorEncoding = Encoding.UTF8,
             };
             psi.EnvironmentVariables["WHC_NO_OPEN"] = "1";
-            // Server beendet sich, falls die App abstürzt
+            // Server exits if the app crashes
             psi.EnvironmentVariables["WHC_PARENT_PID"] = Process.GetCurrentProcess().Id.ToString();
 
             var p = new Process { StartInfo = psi, EnableRaisingEvents = true };
@@ -150,7 +150,7 @@ namespace WatchHimCode
             p.ErrorDataReceived += onLine;
             p.Exited += (s, e) =>
             {
-                if (!shown) Fail("Der Server konnte nicht starten.", "Bitte in der Eingabeaufforderung <code>node server.js</code> ausprobieren.");
+                if (!shown) Fail("The server could not start.", "Please try <code>node server.js</code> in a command prompt.");
             };
             try
             {
@@ -161,7 +161,7 @@ namespace WatchHimCode
             }
             catch (Exception ex)
             {
-                Fail("Der Server konnte nicht starten.", ex.Message);
+                Fail("The server could not start.", ex.Message);
             }
         }
 
@@ -178,7 +178,7 @@ namespace WatchHimCode
             catch { return false; }
         }
 
-        /** Node suchen: zuerst über PATH (`where node`), dann übliche Orte. */
+        /** Find Node: first via PATH (`where node`), then common locations. */
         static string FindNode()
         {
             try
@@ -215,7 +215,7 @@ namespace WatchHimCode
         }
 
         // ---------------------------------------------------------------
-        // Fenster: dunkle Titelleiste, Größe und Position merken
+        // Window: dark title bar, remember size and position
 
         [DllImport("dwmapi.dll")]
         static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
@@ -225,7 +225,7 @@ namespace WatchHimCode
             BeginInvoke(new Action(() =>
             {
                 int on = dark ? 1 : 0;
-                // 20 = DWMWA_USE_IMMERSIVE_DARK_MODE (Windows 10 20H1+ / Windows 11), 19 für ältere Builds
+                // 20 = DWMWA_USE_IMMERSIVE_DARK_MODE (Windows 10 20H1+ / Windows 11), 19 on older builds
                 if (DwmSetWindowAttribute(Handle, 20, ref on, sizeof(int)) != 0)
                     DwmSetWindowAttribute(Handle, 19, ref on, sizeof(int));
                 BackColor = dark ? Color.FromArgb(0x1f, 0x1f, 0x23) : Color.White;

@@ -1,148 +1,147 @@
 # Watch Him Code
 
-Ein schlankes Fenster für den zweiten Bildschirm: Du schaust dem Claude-Code-Agenten
-beim Coden über die Schulter. Gezeigt werden **nur Code-Änderungen** (neue und
-geänderte Dateien), live, sobald sie passieren. Keine Gedanken, keine Kosten, keine
-Historie.
+A lean window for your second screen: look over the Claude Code agent's shoulder while it
+codes. It shows **only code changes** (new and modified files), live, the moment they
+happen. No thoughts, no costs, no history.
 
-## Start
+## Mac app
 
-```bash
-node server.js
-```
+A real app you double-click: `dist/Watch Him Code.app`. It starts the server invisibly,
+shows the UI in its own window (system WebView, no browser needed) and stops the server
+again when you quit – even if the app crashes. Window size and position are remembered,
+the title bar follows light/dark.
 
-Es öffnet sich ein **eigenes App-Fenster** (ohne Adressleiste und Tabs) unter
-`http://127.0.0.1:4777`. Dafür wird Chrome, Edge, Brave oder Chromium im App-Modus
-(`--app=…`) gestartet; ist keiner davon installiert, öffnet sich der Standardbrowser.
-Unter Windows ist Edge immer vorhanden.
-
-Läuft Watch Him Code schon, öffnet ein zweiter Start nur ein weiteres Fenster und keinen
-zweiten Server. Ist der Port von etwas anderem belegt, wird der nächste freie genommen.
-Beenden mit `Strg+C`.
-
-**Als App installieren (optional):** Im App-Fenster oder in Chrome/Edge über das Menü
-„Installieren“ bzw. „Als App installieren“. Dann liegt Watch Him Code mit dem Pixel-Junior
-als Symbol im Launchpad bzw. Startmenü (der Server muss dafür laufen).
-
-Voraussetzung: Node.js 18 oder neuer. Keine `npm install` nötig.
-
-## Mac-App
-
-Eine echte App zum Doppelklicken: `dist/Watch Him Code.app`. Sie startet den Server
-unsichtbar mit, zeigt die Oberfläche in einem eigenen Fenster (System-WebView, kein
-Browser nötig) und beendet den Server beim Schließen wieder – auch wenn die App abstürzt.
-Fenstergröße und -position werden gemerkt, die Titelleiste folgt Hell/Dunkel.
-
-Bauen (braucht Xcode bzw. die Command Line Tools, Ergebnis ca. 1 MB plus Oberfläche):
+Build it (requires Xcode or the Command Line Tools; about 1 MB plus the UI):
 
 ```bash
 ./app/macos/build.sh
 ```
 
-Danach `dist/Watch Him Code.app` z. B. in den Programme-Ordner ziehen. Node.js 18+ muss
-installiert sein; die App findet es wie das Terminal (Login-Shell) oder an den üblichen
-Orten (Homebrew, nvm, Volta). Server und Oberfläche werden beim Bauen in die App kopiert –
-nach Änderungen am Code also neu bauen.
+Then drag `dist/Watch Him Code.app` into your Applications folder, for example. Node.js 18+
+must be installed; the app finds it the way the Terminal does (login shell) or in the
+usual places (Homebrew, nvm, Volta). Server and UI are copied into the app at build time –
+rebuild after changing the code.
 
-## Windows-App
+## Windows app
 
-Gleiches Prinzip wie auf dem Mac: `WatchHimCode.exe` startet den Server unsichtbar,
-zeigt die Oberfläche in einem eigenen Fenster (WebView2, die Edge-Technik) und beendet
-den Server beim Schließen. Basis ist .NET Framework 4.8 – in Windows 10/11 eingebaut,
-es muss nichts zusätzlich installiert werden außer Node.js. Die WebView2-Runtime ist bei
-Windows 11 und aktuellen Windows-10-Versionen dabei; fehlt sie, bietet die App den
-Download an.
+Same idea as on the Mac: `WatchHimCode.exe` starts the server invisibly, shows the UI in
+its own window (WebView2, the Edge engine) and stops the server when closed. It is built
+on .NET Framework 4.8, which ships with Windows 10/11, so nothing besides Node.js needs to
+be installed. The WebView2 runtime comes with Windows 11 and current Windows 10 versions;
+if it's missing, the app offers to open the download page.
 
-Bauen (geht auch auf dem Mac, braucht das .NET SDK):
+Build it (works on the Mac too, requires the .NET SDK):
 
 ```bash
 ./app/windows/build.sh
 ```
 
-Ergebnis: `dist/WatchHimCode-windows.zip` (ca. 360 KB). Auf dem Windows-Rechner entpacken
-und `WatchHimCode.exe` doppelklicken; für Startmenü oder Taskleiste eine Verknüpfung
-anlegen. Beim ersten Start meldet Windows SmartScreen eventuell „Unbekannter
-Herausgeber“ → „Weitere Informationen“ → „Trotzdem ausführen“ (die App ist nicht
-signiert).
+Output: `dist/WatchHimCode-windows.zip` (about 360 KB). Unzip it on the Windows machine and
+double-click `WatchHimCode.exe`; create a shortcut for the Start menu or taskbar. On first
+launch Windows SmartScreen may say "Unknown publisher" → "More info" → "Run anyway" (the
+app is not signed).
 
-## Bedienung
+## Running without the apps
 
-Reine Ansicht – bearbeitet wird nichts. Über das Regler-Symbol oben rechts
-(Einstellungen) lässt sich umschalten, alles bleibt im Browser gespeichert:
+```bash
+node server.js
+```
 
-- **Ansicht**: *Editor* (Xcode-artig: Ordnerbaum, ganze Datei, Änderungen im Rand)
-  oder *Karten* (Dateikarten mit Balken, Diff-Blöcke aller Änderungen einer Datei).
-  Beide haben denselben Funktionsumfang. Taste `v`.
-- **Diff**: *Neu* (nur der neue Stand, Änderungen markiert), *Inline* (alt und neu
-  untereinander) oder *Nebeneinander* (links alt, rechts neu, Lücken schraffiert).
-  Gilt für beide Ansichten. Neue Dateien haben keinen alten Stand und werden dann
-  wie *Neu* gezeigt; ist das Fenster zu schmal (unter ca. 900 px Inhaltsbreite),
-  wird *Inline* genommen. Ein Hinweis in der Pfadzeile sagt dann Bescheid. Taste `s`.
-- **Farben**: Hell, Dunkel oder System. Taste `t`.
-- **Pixel-Junior**: an/aus.
+This opens **its own app window** (no address bar or tabs) at `http://127.0.0.1:4777`,
+using Chrome, Edge, Brave or Chromium in app mode (`--app=…`); if none of them is
+installed, your default browser opens instead. Edge is always available on Windows.
 
-- **Titelleiste**: alle Sessions der letzten 30 Minuten. Grüner pulsierender Punkt =
-  ändert gerade Code. Live folgt der gewählten Session; Änderungen in anderen
-  Sessions lassen nur deren Punkt kurz aufblinken.
-- **Navigator** (links): Ordnerbaum der geänderten Dateien, **A** = neu, **M** = geändert,
-  dazu `+`/`−`.
-- **Code** (Editor-Ansicht): die ganze Datei mit Zeilennummern. Die letzte Änderung ist im Rand markiert
-  (grün = neu, bernstein = geändert, roter Keil = gelöscht, Maus darüber zeigt den alten
-  Text). Bei neuen Änderungen scrollt die Ansicht hin, gelöschte Zeilen erscheinen kurz
-  durchgestrichen und klappen dann ein.
-- **Branch**: rechts in der Pfadzeile der Branch des Repos, in dem die Datei liegt.
-  Bei Unter-Repos (nächstes `.git` oberhalb der Datei, auch Submodule/Worktrees)
-  steht der Repo-Name davor. Gelesen wird direkt `.git/HEAD`, ohne `git`-Aufruf.
-- **Karten-Ansicht**: Karten leuchten bei Änderungen auf, der Balken wächst; in der
-  Mitte alle Änderungen der Datei als Diff, die neueste oben.
-- **Hinweisleiste**: Ändert sich eine andere als die angezeigte Datei, erscheint unten
-  kurz ein Hinweis.
-- **Live**: folgt automatisch der aktuellen Datei. Klick auf eine Datei hält fest,
-  zurück mit „Live folgen“ oder `Esc`.
-- **Pixel-Junior** (unten links): tippt, wenn Code
-  kommt, legt neue Dateien ab, radiert bei Löschungen, schläft nach 2 Minuten Ruhe ein
-  und kommentiert ab und zu, was passiert. Taste `d` führt alle Reaktionen vor.
-  Die Pixel-Schrift (Pixelify Sans, SIL Open Font License) liegt lokal in
-  `public/fonts/`, es wird nichts aus dem Internet geladen.
+If Watch Him Code is already running, a second start only opens another window, not a
+second server. If the port is taken by something else, the next free one is used.
+Stop it with `Ctrl+C`.
 
-## Wie es funktioniert
+**Install as an app (optional):** in the app window or in Chrome/Edge via the menu
+"Install" / "Install as app". Watch Him Code then shows up in Launchpad or the Start menu
+with the Pixel Junior as its icon (the server has to be running). With Safari on macOS
+Sonoma or later: File → Add to Dock.
 
-Claude Code (Terminal wie Desktop-App) schreibt jede Session als Protokoll nach
-`~/.claude/projects/<projekt>/<session>.jsonl`. Der Server
+Requirement: Node.js 18 or newer. No `npm install` needed.
 
-1. beobachtet alle Sessions, die in den letzten 30 Minuten geschrieben haben (max. 6),
-2. liest neue Zeilen inkrementell (alle 0,6 s),
-3. filtert Einträge mit `toolUseResult.filePath` + `structuredPatch` (Edit, Write,
-   MultiEdit; NotebookEdit tolerant),
-4. schickt sie per Server-Sent Events an die Seite.
+## Using it
 
-Subagenten-Protokolle unter `<session>/subagents/` werden mitgelesen.
+Read-only – nothing gets edited. The slider icon at the top right (settings) lets you
+switch the following; everything is stored in the browser:
 
-Der Server lauscht nur auf `127.0.0.1`, ist also von außen nicht erreichbar.
+- **View**: *Editor* (Xcode-like: folder tree, whole file, changes in the gutter) or
+  *Cards* (file cards with bars, diff blocks of all changes to a file). Both have the
+  same features. Key `v`.
+- **Diff**: *New* (only the new version, changes marked), *Inline* (old and new stacked)
+  or *Side by side* (old on the left, new on the right, gaps hatched). Applies to both
+  views. New files have no previous version and are shown as *New*; if the window is too
+  narrow (content area under about 900 px), *Inline* is used. A note in the path bar
+  tells you when that happens. Key `s`.
+- **Theme**: Light, Dark or System. Key `t`.
+- **Pixel Junior**: on/off.
 
-## Ansichten
+What you see:
 
-- `http://127.0.0.1:4777/` – aktuelle Oberfläche (in Arbeit)
-- `http://127.0.0.1:4777/base/` – **Base Mode**: eingefrorener Stand von Schritt 1,
-  wird nicht mehr verändert. Zusätzlich im Git-Tag `base` festgehalten.
+- **Title bar**: all sessions from the last 30 minutes as tabs. A pulsing green dot means
+  that session is changing code right now. Live follows the selected session; changes in
+  other sessions only make their dot blink briefly.
+- **Navigator** (left): folder tree of changed files, **A** = added, **M** = modified,
+  plus `+`/`−`.
+- **Code** (editor view): the whole file with line numbers. The latest change is marked in
+  the gutter (green = new, amber = modified, red wedge = deleted; hover to see the old
+  text). On new changes the view scrolls there; deleted lines briefly appear struck
+  through and then collapse.
+- **Cards view**: cards light up on changes and their bar grows; in the middle, all
+  changes to the file as diffs, newest first.
+- **Branch**: on the right of the path bar, the branch of the repo the file lives in. For
+  nested repos (nearest `.git` above the file, also submodules/worktrees) the repo name is
+  shown in front. Read straight from `.git/HEAD`, no `git` call.
+- **Toast**: when a file other than the one shown changes, a short note pops up at the
+  bottom.
+- **Live**: automatically follows the current file. Clicking a file pins it; go back with
+  "Follow live" or `Esc`.
+- **Pixel Junior** (bottom left): types when code comes in, drops new files, erases on
+  deletions, falls asleep after 2 minutes of quiet and now and then comments on what's
+  happening. Key `d` plays all reactions. The pixel font (Pixelify Sans, SIL Open Font
+  License) is bundled in `public/fonts/`; nothing is loaded from the internet.
 
-## Optionen
+## How it works
 
-| Variable       | Wirkung                          |
-| -------------- | -------------------------------- |
-| `WHC_PORT`     | anderer Startport (Standard 4777) |
-| `WHC_NO_OPEN=1`| kein Fenster öffnen |
-| `WHC_BROWSER=default` | Standardbrowser statt App-Fenster |
+Claude Code (terminal and desktop app alike) writes every session as a log to
+`~/.claude/projects/<project>/<session>.jsonl`. The server
 
-## Dateien
+1. watches all sessions written to in the last 30 minutes (max. 6),
+2. reads new lines incrementally (every 0.6 s),
+3. picks entries with `toolUseResult.filePath` + `structuredPatch` (Edit, Write,
+   MultiEdit; NotebookEdit tolerated),
+4. sends them to the page via Server-Sent Events.
 
-- `server.js` – Beobachter + HTTP/SSE-Server (nur Node-Bordmittel)
-- `public/index.html`, `style.css` – Oberfläche
-- `public/app.js` – Live-Logik, Sessions, Navigator, Code-Ansicht
-- `public/buddy.js` – der Pixel-Junior
-- `public/logo.js` – das Pixel-Logo (eigene 5×7-Buchstaben als SVG)
-- `app/windows/` – Windows-App: `Program.cs` (Fenster + Serverstart), Projekt, Symbol, `build.sh`
-- `app/macos/` – Mac-App: `main.swift` (Fenster + Serverstart), `Info.plist`, Symbol, `build.sh`
-- `public/manifest.webmanifest`, `icon*.png`, `icon.svg` – App-Symbol und Web-App-Angaben
-- `public/base/` – eingefrorene Basis-Ansicht
-- `public/highlight.js` – kleiner eigener Syntax-Highlighter
+Subagent logs under `<session>/subagents/` are read as well. Only changes made through
+Claude's file tools show up – edits made by shell commands are not in the log.
+
+The server listens on `127.0.0.1` only, so it's not reachable from outside.
+
+## Views
+
+- `http://127.0.0.1:4777/` – current UI
+- `http://127.0.0.1:4777/base/` – **base mode**: frozen state of step 1 (German), no longer
+  changed. Also kept in the git tag `base`.
+
+## Options
+
+| Variable              | Effect                              |
+| --------------------- | ----------------------------------- |
+| `WHC_PORT`            | different start port (default 4777) |
+| `WHC_NO_OPEN=1`       | don't open a window                 |
+| `WHC_BROWSER=default` | default browser instead of app window |
+
+## Files
+
+- `server.js` – watcher + HTTP/SSE server (Node built-ins only)
+- `public/index.html`, `style.css` – UI
+- `public/app.js` – live logic, sessions, navigator, code view
+- `public/buddy.js` – the Pixel Junior
+- `public/logo.js` – the pixel logo (custom 5×7 letters as SVG)
+- `public/highlight.js` – small home-made syntax highlighter
+- `public/manifest.webmanifest`, `icon*.png`, `icon.svg` – app icon and web app metadata
+- `public/base/` – frozen base view
+- `app/macos/` – Mac app: `main.swift` (window + server start), `Info.plist`, icon, `build.sh`
+- `app/windows/` – Windows app: `Program.cs` (window + server start), project, icon, `build.sh`

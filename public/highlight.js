@@ -1,6 +1,6 @@
-// Kleiner, abhängigkeitsfreier Syntax-Highlighter. Bewusst einfach:
-// erkennt Kommentare, Strings, Zahlen, Schlüsselwörter, Funktionen, Typen
-// und HTML-Tags. Zustand (Blockkommentar) wird über Zeilen mitgeführt.
+// Small, dependency-free syntax highlighter. Deliberately simple:
+// recognises comments, strings, numbers, keywords, functions, types
+// and HTML tags. State (block comment) is carried across lines.
 'use strict'
 
 const Highlight = (() => {
@@ -46,7 +46,7 @@ const Highlight = (() => {
     return m ? m[0] : null
   }
 
-  /** state: { block: null | '*\/' | '-->' }  wird verändert */
+  /** state: { block: null | '*\/' | '-->' }  is mutated */
   function line(text, lang, state) {
     if (lang === 'text') return esc(text)
     let out = ''
@@ -55,7 +55,7 @@ const Highlight = (() => {
     const lineComment = lang === 'hash' ? '#' : lang === 'sql' ? '--' : lang === 'c' || lang === 'css' ? '//' : null
 
     while (i < n) {
-      // Laufender Blockkommentar
+      // Block comment still open
       if (state.block) {
         const end = text.indexOf(state.block, i)
         if (end < 0) {
@@ -71,7 +71,7 @@ const Highlight = (() => {
       const rest = text.slice(i)
       const ch = text[i]
 
-      // '#' nur als Kommentar, wenn es nicht mitten in einem Wort steht
+      // '#' only starts a comment when it isn't in the middle of a word
       if (lineComment && rest.startsWith(lineComment) && !(lineComment === '#' && i > 0 && /[\w$]/.test(text[i - 1]))) {
         out += span('c', rest)
         return out
@@ -107,7 +107,7 @@ const Highlight = (() => {
       if (ch === '"' || ch === "'" || (ch === '`' && lang !== 'hash')) {
         const s = at(STRING, text, i)
         if (s) {
-          // JSON-Schlüssel etwas anders einfärben
+          // colour JSON keys slightly differently
           const isKey = lang === 'json' && /^\s*:/.test(text.slice(i + s.length))
           out += span(isKey ? 'attr' : 's', s)
           i += s.length

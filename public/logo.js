@@ -1,7 +1,7 @@
 'use strict'
-// Das Logo als eigene Pixelgrafik: eigene 5×7-Buchstaben (gerades T),
-// darunter ein 1-px-Rand und ein harter Schatten. Farben kommen aus CSS
-// (--logo-fill, --logo-edge, --logo-drop), damit Hell und Dunkel abweichen können.
+// The logo as its own pixel graphic: custom 5×7 letters (straight T),
+// with a 1px outline and a hard drop shadow underneath. Colours come from CSS
+// (--logo-fill, --logo-edge, --logo-drop) so light and dark can differ.
 
 const PixelLogo = (() => {
   const GLYPHS = {
@@ -17,7 +17,7 @@ const PixelLogo = (() => {
     E: ['11111', '1....', '1....', '1111.', '1....', '1....', '11111'],
   }
 
-  /** cell: Größe eines Buchstaben-Pixels, edge: Randbreite, drop: Schattenversatz (alles in px) */
+  /** cell: size of one letter pixel, edge: outline width, drop: shadow offset (all in px) */
   function svg(text, { cell = 3, edge = 1, drop = 2 } = {}) {
     const cells = []
     let x = 0

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de" data-theme="dark">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -16,11 +16,11 @@
       <div class="app" id="logo" title="Watch Him Code"></div>
       <nav class="sessions" id="sessions"></nav>
       <div class="tools">
-        <button class="live" id="live" title="Der neuesten Änderung folgen (Esc)">
+        <button class="live" id="live" title="Follow the latest change (Esc)">
           <span class="dot"></span><span id="live-label">Live</span>
         </button>
         <div class="settings-wrap">
-          <button class="tool" id="settings-btn" title="Einstellungen">
+          <button class="tool" id="settings-btn" title="Settings">
             <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4">
               <path d="M2 4h7M13 4h1M2 8h2M8 8h6M2 12h8M14 12h0" stroke-linecap="round" />
               <circle cx="11" cy="4" r="1.8" /><circle cx="6" cy="8" r="1.8" /><circle cx="12" cy="12" r="1.8" />
@@ -28,36 +28,36 @@
           </button>
           <div class="settings" id="settings" hidden>
             <div class="setting">
-              <span>Ansicht</span>
+              <span>View</span>
               <div class="seg">
                 <button data-key="view" data-value="editor">Editor</button>
-                <button data-key="view" data-value="cards">Karten</button>
+                <button data-key="view" data-value="cards">Cards</button>
               </div>
             </div>
             <div class="setting">
               <span>Diff</span>
               <div class="seg">
-                <button data-key="diff" data-value="new">Neu</button>
+                <button data-key="diff" data-value="new">New</button>
                 <button data-key="diff" data-value="inline">Inline</button>
-                <button data-key="diff" data-value="split">Nebeneinander</button>
+                <button data-key="diff" data-value="split">Side by side</button>
               </div>
             </div>
             <div class="setting">
-              <span>Farben</span>
+              <span>Theme</span>
               <div class="seg">
-                <button data-key="theme" data-value="light">Hell</button>
-                <button data-key="theme" data-value="dark">Dunkel</button>
+                <button data-key="theme" data-value="light">Light</button>
+                <button data-key="theme" data-value="dark">Dark</button>
                 <button data-key="theme" data-value="system">System</button>
               </div>
             </div>
             <div class="setting">
-              <span>Pixel-Junior</span>
+              <span>Pixel Junior</span>
               <div class="seg">
-                <button data-key="buddy" data-value="true">An</button>
-                <button data-key="buddy" data-value="false">Aus</button>
+                <button data-key="buddy" data-value="true">On</button>
+                <button data-key="buddy" data-value="false">Off</button>
               </div>
             </div>
-            <div class="keys"><kbd>Esc</kbd> Live · <kbd>v</kbd> Ansicht · <kbd>s</kbd> Diff · <kbd>t</kbd> Farben · <kbd>d</kbd> Demo</div>
+            <div class="keys"><kbd>Esc</kbd> Live · <kbd>v</kbd> View · <kbd>s</kbd> Diff · <kbd>t</kbd> Theme · <kbd>d</kbd> Demo</div>
           </div>
         </div>
       </div>

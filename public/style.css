@@ -1,4 +1,4 @@
-/* Pixel-Schrift für den Pixel-Junior, lokal mitgeliefert (SIL OFL, siehe fonts/OFL.txt) */
+/* Pixel font for the Pixel Junior, bundled locally (SIL OFL, see fonts/OFL.txt) */
 @font-face {
   font-family: 'Pixelify Sans';
   src: url('fonts/PixelifySans-Regular.woff2') format('woff2');
@@ -6,15 +6,15 @@
   font-display: swap;
 }
 
-/* Farben ------------------------------------------------------------------
-   Dunkel angelehnt an Xcode „Default (Dark)“, Hell an „Default (Light)“.
-   Bewusst gedämpft. Alle Farben nur über diese Variablen. */
+/* Colours ------------------------------------------------------------------
+   Dark is modelled on Xcode "Default (Dark)", light on "Default (Light)".
+   Deliberately muted. All colours go through these variables only. */
 :root,
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --bg: #1f1f23; /* Inhalt */
-  --side: #232327; /* Navigator */
-  --title: #161619; /* Titelleiste */
+  --bg: #1f1f23; /* content */
+  --side: #232327; /* navigator */
+  --title: #161619; /* title bar */
   --tab: #222226;
   --tab-hover: #29292e;
   --sel: #3a3a42;
@@ -134,7 +134,7 @@ button {
   color: rgb(var(--del));
 }
 
-/* Titelleiste mit Session-Tabs -------------------------------------------- */
+/* Title bar with session tabs -------------------------------------------- */
 .titlebar {
   display: flex;
   align-items: flex-end;
@@ -143,7 +143,7 @@ button {
   padding: 0 12px 0 18px;
   background: var(--title);
 }
-/* Pixel-Logo (eigene Pixelgrafik aus logo.js), Farben je Modus */
+/* Pixel logo (own pixel graphic from logo.js), colours per theme */
 .app {
   align-self: center;
   display: flex;
@@ -168,7 +168,7 @@ button {
   min-width: 0;
   overflow: hidden;
 }
-/* Jede Session ist ein Tab: oben gerundet, der gewählte geht nahtlos in die Ansicht über */
+/* Each session is a tab: rounded on top, the selected one merges seamlessly into the view */
 .session {
   position: relative;
   display: flex;
@@ -299,7 +299,7 @@ button {
   background: rgb(var(--del));
 }
 
-/* Einstellungen */
+/* Settings */
 .settings-wrap {
   position: relative;
 }
@@ -399,7 +399,7 @@ kbd {
   line-height: 1.6;
 }
 
-/* Editor-Ansicht: Navigator als Ordnerbaum --------------------------------- */
+/* Editor view: navigator as folder tree --------------------------------- */
 .node {
   display: flex;
   align-items: center;
@@ -468,7 +468,7 @@ kbd {
   flex: none;
 }
 
-/* Karten-Ansicht: Navigator als Dateikarten -------------------------------- */
+/* Cards view: navigator as file cards -------------------------------- */
 .card {
   --tone: var(--mod);
   position: relative;
@@ -571,7 +571,7 @@ kbd {
   transition: flex-grow 0.7s;
 }
 
-/* Pfadzeile --------------------------------------------------------------- */
+/* Path bar --------------------------------------------------------------- */
 .jumpbar {
   display: flex;
   align-items: center;
@@ -616,7 +616,7 @@ kbd {
   color: var(--faint);
 }
 
-/* Inhaltsbereich ---------------------------------------------------------- */
+/* Content area ---------------------------------------------------------- */
 .view {
   flex: 1;
   overflow: auto;
@@ -646,7 +646,7 @@ kbd {
   font-size: 16px;
 }
 
-/* Editor-Ansicht: ganze Datei, Änderungen im Rand */
+/* Editor view: whole file, changes marked in the gutter */
 .row {
   display: flex;
   min-height: calc(var(--code-size) * var(--code-lh));
@@ -756,7 +756,7 @@ kbd {
   font-size: 12px;
 }
 
-/* Karten-Ansicht: Änderungen als Diff-Blöcke */
+/* Cards view: changes as diff blocks */
 .change {
   border-radius: var(--radius);
   border: 1px solid var(--line);
@@ -856,7 +856,7 @@ tr.in {
   font-size: 12px;
 }
 
-/* Nebeneinander: links alt, rechts neu, Lücken schraffiert */
+/* Side by side: old on the left, new on the right, gaps hatched */
 table.split {
   table-layout: fixed;
 }
@@ -927,7 +927,7 @@ table.split td.cfill {
   color: var(--sx-attr);
 }
 
-/* Hinweisleiste */
+/* Toast */
 .toast {
   position: fixed;
   left: 50%;
@@ -949,7 +949,7 @@ table.split td.cfill {
   transform: translate(-50%, 0);
 }
 
-/* Pixel-Junior ------------------------------------------------------------ */
+/* Pixel Junior ------------------------------------------------------------ */
 .buddy {
   position: relative;
   flex: none;
@@ -983,7 +983,7 @@ table.split td.cfill {
   border-radius: 2px;
   background: var(--line);
 }
-/* Sprechblase im Pixel-Stil: eckige Stufen statt Rundung */
+/* Speech bubble in pixel style: square steps instead of rounded corners */
 .bubble {
   position: absolute;
   left: 50%;
