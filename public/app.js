@@ -1651,6 +1651,10 @@ events.addEventListener('reset', e => {
   els.list.innerHTML = ''
   renderAll()
   buddy.wake(s && s.last ? s.last.ts : 0)
+  // Tell the Mac/Windows app the page is up and connected (its blank-window watchdog)
+  try {
+    if (host) host({ ready: true })
+  } catch {}
 })
 
 // A commit happened: new HEAD versions for that repo's files

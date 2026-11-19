@@ -470,8 +470,14 @@ function committedText(file) {
  * change. The UI diffs it against the current content to show what changed in
  * the session overall – also edits that never made it into the log.
  */
-function rememberBase(s, c, before) {
+function rememberBase(s, c, before, live = true) {
   if (s.bases.has(c.filePath)) return
+  if (!live) {
+    // Reading old history at start: work out the git base later, when the page
+    // asks for it – keeps the server responsive while it starts.
+    s.bases.set(c.filePath, { lazy: true, before: typeof before === 'string' && before.length <= MAX_AFTER ? before : null })
+    return
+  }
   // In a git repo: the committed state when the session started (like git diff).
   // Otherwise: the old content from the log or the last version we know.
   let base = textAtSessionStart(s, c.filePath)
@@ -552,6 +558,15 @@ function headText(file) {
   }
 }
 
+/** Turn bases noted while reading old history into real content. */
+function resolveBases(s) {
+  for (const [file, v] of s.bases) {
+    if (!v || typeof v !== 'object' || !v.lazy) continue
+    const fromGit = textAtSessionStart(s, file)
+    s.bases.set(file, fromGit !== null ? fromGit : v.before)
+  }
+}
+
 /** HEAD versions of a session's files (all, or only those in one repo). */
 function headContents(s, root = null) {
   const out = {}
@@ -616,7 +631,7 @@ function readNew(s, file, sink, live = false) {
             }
         }
         delete change.needsBase
-        rememberBase(s, change, change.before ?? (typeof prev === 'string' ? prev : null))
+        rememberBase(s, change, change.before ?? (typeof prev === 'string' ? prev : null), live)
         delete change.before
         fillAfter(s, change)
         change.repo = repoFor(path.dirname(change.filePath))
@@ -668,7 +683,7 @@ function currentContents(s) {
 
 function snapshotV2() {
   return {
-    sessions: [...sessions.values()].map(s => ({
+    sessions: [...sessions.values()].map(s => (resolveBases(s), {
       ...sessionInfo(s),
       changes: slimChanges(s.changes).map(c => ({ ...c, base: undefined, head: undefined })),
       bases: Object.fromEntries(s.bases),
@@ -1408,9 +1423,13 @@ function listen(port) {
   server.listen(port, HOST, () => {
     const url = `http://${HOST}:${port}`
     console.log(`Watch Him Code is running at ${url}  (stop with Ctrl+C)`)
-    scan()
-    setInterval(poll, POLL_MS)
-    setInterval(scan, SCAN_MS)
+    // Read the session logs a moment later: the window first gets the page
+    // (instantly), the data follows over the live connection.
+    setTimeout(() => {
+      scan()
+      setInterval(poll, POLL_MS)
+      setInterval(scan, SCAN_MS)
+    }, 250)
     checkGit()
     setTimeout(checkUpdate, 5000).unref()
     setInterval(checkUpdate, UPDATE_EVERY_MS).unref()

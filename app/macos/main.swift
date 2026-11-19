@@ -13,6 +13,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
     var window: NSWindow!
     var webView: WKWebView!
     var server: Process?
+    var pageURL: URL?        // the page we show (once the server is up)
+    var pageReady = false    // the page reported it is up and connected
+    var watchdog: Timer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMenu()
@@ -118,12 +121,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
     /// stay blank. Load the page again right away instead.
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
         NSLog("Watch Him Code: web content process ended – reloading")
-        if webView.url != nil { webView.reload() }
+        loadPage()
     }
 
     @objc func showWindow() {
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        if pageURL != nil && !pageReady { loadPage() } // blank? try again right away
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -170,6 +174,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
         guard let body = message.body as? [String: Any] else { return }
         if let theme = body["theme"] as? String { applyTheme(theme) }
+        if body["ready"] as? Bool == true {
+            pageReady = true
+            watchdog?.invalidate()
+        }
         if let link = body["open"] as? String, let url = URL(string: link), url.scheme == "https" {
             NSWorkspace.shared.open(url)
         }
@@ -375,8 +383,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
 
     func show(_ base: URL) {
         DispatchQueue.main.async {
-            self.webView.load(URLRequest(url: base))
+            self.pageURL = base
+            self.loadPage()
         }
+    }
+
+    /// Load the page and make sure it actually comes up: the page reports
+    /// "ready" once it is connected. If that doesn't happen within a few
+    /// seconds (load failed, server busy, web process gone …) load it again.
+    /// A window can't stay blank this way.
+    func loadPage() {
+        guard let url = pageURL else { return }
+        pageReady = false
+        webView.load(URLRequest(url: url))
+        watchdog?.invalidate()
+        watchdog = Timer.scheduledTimer(withTimeInterval: 8, repeats: false) { [weak self] _ in
+            guard let self = self, !self.pageReady else { return }
+            NSLog("Watch Him Code: page not ready – loading again")
+            self.loadPage()
+        }
+    }
+
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        retryLoad(error)
+    }
+
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        retryLoad(error)
+    }
+
+    func retryLoad(_ error: Error) {
+        if (error as NSError).code == NSURLErrorCancelled { return } // replaced by another load
+        NSLog("Watch Him Code: page load failed (\(error.localizedDescription)) – retrying")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { if !self.pageReady { self.loadPage() } }
     }
 
     func fail(_ title: String, _ detail: String) {

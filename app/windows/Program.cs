@@ -54,6 +54,9 @@ namespace WatchHimCode
         readonly WebView2 web = new WebView2 { Dock = DockStyle.Fill };
         Process server;
         bool shown;
+        string pageUrl;                    // the page we show (once the server is up)
+        bool pageReady;                    // the page reported it is up and connected
+        readonly System.Windows.Forms.Timer watchdog = new System.Windows.Forms.Timer { Interval = 8000 };
         readonly NotifyIcon tray = new NotifyIcon();
         readonly EventWaitHandle showSignal = new EventWaitHandle(false, EventResetMode.AutoReset, Program.ShowEventName);
         bool quitting;
@@ -120,6 +123,7 @@ namespace WatchHimCode
         void ShowFromTray()
         {
             Show();
+            if (pageUrl != null && !pageReady) LoadPage();
             if (WindowState == FormWindowState.Minimized) WindowState = FormWindowState.Normal;
             Activate();
             BringToFront();
@@ -166,12 +170,22 @@ namespace WatchHimCode
             web.CoreWebView2.Settings.IsStatusBarEnabled = false;
             // The page runs in a separate process. If it dies or hangs, the window
             // would stay blank – load the page again instead.
+            web.CoreWebView2.NavigationCompleted += (s, e) =>
+            {
+                if (!e.IsSuccess && !pageReady && pageUrl != null)
+                {
+                    var retry = new System.Windows.Forms.Timer { Interval = 1000 };
+                    retry.Tick += (s2, e2) => { retry.Stop(); retry.Dispose(); if (!pageReady) LoadPage(); };
+                    retry.Start();
+                }
+            };
+            watchdog.Tick += (s, e) => { watchdog.Stop(); if (!pageReady) LoadPage(); };
             web.CoreWebView2.ProcessFailed += (s, e) =>
             {
                 if (e.ProcessFailedKind == CoreWebView2ProcessFailedKind.RenderProcessExited ||
                     e.ProcessFailedKind == CoreWebView2ProcessFailedKind.RenderProcessUnresponsive ||
                     e.ProcessFailedKind == CoreWebView2ProcessFailedKind.FrameRenderProcessExited)
-                    BeginInvoke(new Action(() => { try { web.CoreWebView2.Reload(); } catch { } }));
+                    BeginInvoke(new Action(() => { try { LoadPage(); } catch { } }));
             };
             web.CoreWebView2.WebMessageReceived += (s, e) =>
             {
@@ -182,6 +196,8 @@ namespace WatchHimCode
                 var open = Regex.Match(json, "\"open\"\\s*:\\s*\"(https://[^\"]+)\"");
                 if (open.Success)
                     try { Process.Start(new ProcessStartInfo(open.Groups[1].Value) { UseShellExecute = true }); } catch { }
+                // The page is up and connected
+                if (json.Contains("\"ready\"")) { pageReady = true; watchdog.Stop(); }
                 // Double-click on the page's title bar: maximize / restore
                 if (json.Contains("\"titlebar\""))
                     WindowState = WindowState == FormWindowState.Maximized ? FormWindowState.Normal : FormWindowState.Maximized;
@@ -196,7 +212,19 @@ namespace WatchHimCode
         {
             if (shown) return;
             shown = true;
-            BeginInvoke(new Action(() => web.CoreWebView2.Navigate(url)));
+            pageUrl = url;
+            BeginInvoke(new Action(LoadPage));
+        }
+
+        /// Load the page and make sure it comes up: the page reports "ready" once
+        /// connected. If not within a few seconds, load it again – no blank window.
+        void LoadPage()
+        {
+            if (pageUrl == null || web.CoreWebView2 == null) return;
+            pageReady = false;
+            web.CoreWebView2.Navigate(pageUrl);
+            watchdog.Stop();
+            watchdog.Start();
         }
 
         void Fail(string title, string detail)
