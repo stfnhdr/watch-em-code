@@ -48,7 +48,7 @@ dependencies**. `npm install` is not part of this story.
   *Settings → Compare with → Last commit* compares against each repo's latest commit instead,
   exactly like VS Code – after a commit only what came since shows up.
   *Settings → Marks → Latest edit* marks only the newest edit.
-- **Fresh start.** Long session, then a PR, then review comments? Press `c` (or the broom) and
+- **Reset.** Long session, then a PR, then review comments? Click *↺ Reset* (or press `c`) and
   the tab only shows what changed from now on – again combined per file. Earlier changes are
   just hidden: closing the *since* pill brings back the whole session.
 - **No frantic jumping.** Each change stays on screen for a few seconds (*Show each change*,
@@ -153,7 +153,7 @@ browser at `http://127.0.0.1:4777`.
 | `t`   | Cycle theme: Light → Dark → System           |
 | `d`   | Demo: plays a made-up session in its own tab |
 | `i`   | Status: does everything work?                |
-| `c`   | Fresh start: hide this session's earlier changes, show only new ones |
+| `c`   | Reset: hide this session's earlier changes, show only new ones |
 
 ## How it works
 

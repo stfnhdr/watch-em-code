@@ -19,10 +19,8 @@
       <div class="session-menu" id="session-menu" hidden></div>
       <div class="tools">
         <button class="update-pill" id="update-pill" hidden title="A new version is available"></button>
-        <button class="tool" id="fresh-btn" title="Fresh start: hide this session's earlier changes, show only new ones (c)">
-          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M10.5 1.5 7 8" /><path d="M4.5 8.5h6l1 6h-8z" /><path d="M6.5 11.5v3M9 11.5v3" />
-          </svg>
+        <button class="reset" id="fresh-btn" title="Reset: hide this session's changes so far and show only what changes from now on (c). Nothing is deleted.">
+          <span class="icon">↺</span><span>Reset</span>
         </button>
         <button class="live" id="live" title="Follow the latest change (Esc)">
           <span class="dot"></span><span id="live-label">Live</span>
@@ -109,7 +107,7 @@
                 <button data-key="avatar" data-value="werner">Werner</button>
               </div>
             </div>
-            <div class="keys"><kbd>Esc</kbd> Live · <kbd>v</kbd> View · <kbd>s</kbd> Diff · <kbd>t</kbd> Theme · <kbd>d</kbd> Demo · <kbd>i</kbd> Status · <kbd>c</kbd> Fresh start</div>
+            <div class="keys"><kbd>Esc</kbd> Live · <kbd>v</kbd> View · <kbd>s</kbd> Diff · <kbd>t</kbd> Theme · <kbd>d</kbd> Demo · <kbd>i</kbd> Status · <kbd>c</kbd> Reset</div>
           </div>
         </div>
       </div>

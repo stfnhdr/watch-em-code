@@ -413,6 +413,32 @@ button {
 .live:hover {
   background: var(--hover);
 }
+/* Reset: labelled so it's easy to find */
+.reset {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 11px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  color: var(--dim);
+  white-space: nowrap;
+}
+.reset .icon {
+  font-size: 14px;
+  line-height: 1;
+}
+.reset:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+/* while a reset is active for the selected tab */
+.reset.on {
+  color: rgb(var(--mod));
+  border-color: rgba(var(--mod), 0.45);
+  background: rgba(var(--mod), 0.1);
+}
 .live .dot {
   width: 7px;
   height: 7px;

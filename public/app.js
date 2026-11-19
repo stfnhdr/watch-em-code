@@ -348,7 +348,7 @@ function freshStart() {
   selected = null
   els.list.innerHTML = ''
   renderAll()
-  toast(`↺ Fresh start – only changes from now on (<kbd>c</kbd>)`)
+  toast(`↺ Reset – only changes from now on show up (<kbd>c</kbd>)`)
 }
 
 function showEarlier() {
@@ -673,6 +673,13 @@ els.sessionMenu.addEventListener('click', e => {
 })
 
 function renderLive() {
+  // The Reset button lights up while the selected tab has an active reset
+  const sid = cur()?.info.id
+  const active = !!sid && clearedAt.has(sid)
+  els.freshBtn.classList.toggle('on', active)
+  els.freshBtn.title = active
+    ? `Reset at ${clockTime(clearedAt.get(sid))} – click to reset again (c). The “since” pill above the file shows everything again.`
+    : "Reset: hide this session's changes so far and show only what changes from now on (c). Nothing is deleted."
   els.live.classList.toggle('on', follow && connected)
   els.live.classList.toggle('offline', !connected)
   els.liveLabel.textContent = !connected ? 'Disconnected' : follow ? 'Live' : 'Follow live'
@@ -859,7 +866,7 @@ function netHtml(f, last) {
   const combinedView = combined(f)
   const n = combinedView ? net(f) : last
   const title = combinedView
-    ? `Net change ${clearedAt.has(cur()?.info.id) ? 'since the fresh start' : settings.compare === 'commit' ? 'since the last commit' : 'in this session'} · newest edit: +${last.added} −${last.removed}`
+    ? `Net change ${clearedAt.has(cur()?.info.id) ? 'since the reset' : settings.compare === 'commit' ? 'since the last commit' : 'in this session'} · newest edit: +${last.added} −${last.removed}`
     : 'Newest edit'
   return `<span title="${esc(title)}"><span class="plus">+${n.added}</span> <span class="minus">−${n.removed}</span></span>`
 }
@@ -1121,7 +1128,7 @@ function renderMain(animate, changeId) {
     const s = cur()
     els.view.innerHTML =
       s && clearedAt.has(s.info.id)
-        ? `<div class="waiting"><b>Fresh start at ${clockTime(clearedAt.get(s.info.id))}</b><span>Only changes from now on show up here.</span><span><button class="link" data-act="show-earlier">Show earlier changes</button></span></div>`
+        ? `<div class="waiting"><b>Reset at ${clockTime(clearedAt.get(s.info.id))}</b><span>Only changes from now on show up here.</span><span><button class="link" data-act="show-earlier">Show earlier changes</button></span></div>`
         : `<div class="waiting"><b>Waiting for code …</b><span>As soon as Claude creates or changes a file, it shows up here.</span><span>Nothing running? Press <kbd>d</kbd> for a demo.</span></div>`
     return
   }
