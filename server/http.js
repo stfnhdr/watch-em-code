@@ -6,12 +6,25 @@ const path = require('path')
 const http = require('http')
 const { PUBLIC } = require('./config')
 const { clients } = require('./bus')
-const { snapshotV2, snapshotV1 } = require('./sessions')
+const os = require('os')
+const { sessions, snapshotV2, snapshotV1 } = require('./sessions')
 const { sessionList, listSessionFiles, pinned, scan } = require('./claude')
 const { refreshUpdate, updateInfo } = require('./update')
 const { statusReport } = require('./status')
-const { sessions } = require('./sessions')
 const { addFolder, removeFolder, checkFolder, pickFolder } = require('./folders')
+
+/**
+ * Only answer requests addressed to this machine by name or IP. A web page
+ * that points its own domain at 127.0.0.1 ("DNS rebinding") counts as the
+ * same origin as we do – but its requests still carry its domain in Host.
+ */
+const LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]'])
+function localHost(req) {
+  const host = String(req.headers.host || '')
+    .replace(/:\d+$/, '')
+    .toLowerCase()
+  return LOCAL_HOSTS.has(host)
+}
 
 const json = (res, code, data) =>
   res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }).end(JSON.stringify(data))
@@ -52,6 +65,7 @@ const TYPES = {
 }
 
 const server = http.createServer((req, res) => {
+  if (!localHost(req)) return json(res, 403, { ok: false, error: 'Not allowed.' })
   const url = new URL(req.url, 'http://localhost')
 
   if (url.pathname === '/whc') {
@@ -70,7 +84,7 @@ const server = http.createServer((req, res) => {
     readBody(req).then(async body => {
       if (url.pathname === '/folders/pick') return json(res, 200, { ok: true, path: await pickFolder() })
       if (url.pathname === '/folders/remove') return json(res, 200, { ok: removeFolder(String(body.id || '')) })
-      const dir = typeof body.path === 'string' ? body.path.trim().replace(/^~(?=$|[\\/])/, require('os').homedir()) : ''
+      const dir = typeof body.path === 'string' ? body.path.trim().replace(/^~(?=$|[\\/])/, os.homedir()) : ''
       const error = checkFolder(dir)
       if (error) return json(res, 400, { ok: false, error })
       json(res, 200, { ok: true, id: addFolder(dir).id })

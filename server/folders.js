@@ -8,16 +8,19 @@ const fs = require('fs')
 const os = require('os')
 const path = require('path')
 const crypto = require('crypto')
+const zlib = require('zlib')
+const { promisify } = require('util')
 const { execFile } = require('child_process')
-const { DATA_DIR, MAX_AFTER } = require('./config')
+const { DATA_DIR } = require('./config')
 const { findRepos } = require('./git')
 const { IGNORE_DIRS, IGNORE_FILES, ignored } = require('./ignore')
 const { repoFor } = require('./repos')
-const { sessions, nextSeq, rememberBase, emitChanges, snapshotV2 } = require('./sessions')
+const { sessions, diffChange, emitChanges, snapshotV2 } = require('./sessions')
 const { gitScan } = require('./shellwatch')
-const { readText, same, displayPath } = require('./text')
-const { lineDiff } = require('./diff')
+const { readText, readTextAsync } = require('./text')
 const { broadcast } = require('./bus')
+
+const deflateRaw = promisify(zlib.deflateRaw)
 
 const FOLDERS_FILE = path.join(DATA_DIR, 'folders.json')
 const SNAP_MAX_FILES = 5000 // snapshot outside git: at most this many files ...
@@ -30,7 +33,8 @@ const folderId = dir => 'folder-' + crypto.createHash('sha1').update(dir).digest
 /** Is this a folder we can and should watch? Returns an error text or ''. */
 function checkFolder(dir) {
   if (!dir || !path.isAbsolute(dir)) return 'Please give a full path.'
-  if (dir === os.homedir() || path.dirname(dir) === dir) return 'That folder is too big to watch – pick a project folder.'
+  dir = path.resolve(dir) // "/Users/x/", "/Users/x/." … are the home folder too
+  if (dir === path.resolve(os.homedir()) || path.dirname(dir) === dir) return 'That folder is too big to watch – pick a project folder.'
   try {
     if (!fs.statSync(dir).isDirectory()) return 'That is not a folder.'
     fs.readdirSync(dir)
@@ -109,7 +113,9 @@ function onEvent(s, name) {
   const file = path.join(s.cwd, rel)
   const root = repoFor(path.dirname(file))
   if (root) {
-    if (!s.git.roots.includes(root)) s.git.roots = findRepos(s.cwd) // e.g. after `git init`
+    // A repo we didn't know yet (e.g. after `git init`, or nested deeper than
+    // findRepos looks): add it, so the next event doesn't search again.
+    if (!s.git.roots.includes(root)) s.git.roots = [...new Set([...findRepos(s.cwd), root])]
     return scheduleGit(s)
   }
   const w = s.watch
@@ -139,52 +145,51 @@ async function runGit(s) {
   if (s.git.wanted && !s.watch.closed) scheduleGit(s, 1300)
 }
 
+/** Was this file created before we started watching? (No birth time, e.g. some Linux file systems: assume yes.) */
+function existedBefore(s, file) {
+  try {
+    const born = fs.statSync(file).birthtimeMs
+    return !born || born < s.started
+  } catch {
+    return false
+  }
+}
+
 /** Outside git: diff against the last version we know (or the snapshot). */
 function fileChanged(s, file) {
   if (s.watch.closed) return
   const w = s.watch
   const after = readText(file)
   const known = s.contents.has(file)
-  const before = known ? s.contents.get(file) : w.snap.has(file) ? w.snap.get(file) : undefined
-  if (before === null || after === null) {
-    s.contents.set(file, after ?? null) // binary or too large: nothing to show
+  const inSnap = w.snap.has(file)
+  const before = known ? s.contents.get(file) : inSnap ? snapText(w, file) : undefined
+  w.snap.delete(file) // from now on s.contents holds the version we know
+  // No base because the snapshot hasn't reached the file yet (or stopped
+  // early)? If the file was already there when watching started, its old
+  // content is unknown: take it as the base instead of showing it as new.
+  if (!known && !inSnap && after !== undefined && (!w.snapDone || w.truncated) && existedBefore(s, file)) {
+    s.contents.set(file, after)
     return
   }
-  if (before === undefined && after === undefined) return
-  if (same(before, after) || (before === undefined && after === '')) {
-    if (after !== undefined) s.contents.set(file, after)
-    return
-  }
-  const hunks = lineDiff(before ?? '', after ?? '')
-  if (!hunks.length) return
-  let added = 0
-  let removed = 0
-  for (const h of hunks)
-    for (const l of h.lines) {
-      if (l[0] === '+') added++
-      else if (l[0] === '-') removed++
-    }
-  const change = {
-    id: nextSeq(),
-    filePath: file,
-    rel: displayPath(file, s.cwd),
-    kind: before === undefined ? 'create' : 'update',
-    hunks,
-    added,
-    removed,
-    after: after ?? '',
-    ts: Date.now(),
-    repo: null,
-    source: after === undefined ? 'watch-deleted' : 'watch',
-  }
-  rememberBase(s, change, before ?? '')
-  if (after === undefined) s.contents.delete(file)
-  else s.contents.set(file, after)
+  const change = diffChange(s, file, before, after, { source: 'watch', ts: Date.now() })
+  if (!change) return
   s.mtime = Date.now()
   emitChanges(s, [change])
 }
 
-/** Every text file outside git as it is now – the base for later diffs. */
+/**
+ * Snapshot entries are kept compressed (source code shrinks to a fraction),
+ * and only unpacked for the one file that changed.
+ */
+const snapText = (w, file) => {
+  const v = w.snap.get(file)
+  return Buffer.isBuffer(v) ? zlib.inflateRawSync(v).toString('utf8') : v
+}
+
+/**
+ * Every text file outside git as it is now – the base for later diffs.
+ * Reads without blocking the server, and stores compressed.
+ */
 async function snapshot(s) {
   const w = s.watch
   let files = 0
@@ -210,14 +215,10 @@ async function snapshot(s) {
         return
       }
       if (w.snap.has(p) || s.contents.has(p)) continue // changed while we were walking
-      let size = 0
-      try {
-        size = (await fs.promises.stat(p)).size
-      } catch {
-        continue
-      }
-      const text = size > MAX_AFTER ? null : readText(p)
-      w.snap.set(p, typeof text === 'string' ? text : null)
+      const text = await readTextAsync(p)
+      if (text === undefined || w.closed) continue
+      if (w.snap.has(p) || s.contents.has(p)) continue // changed while we were reading
+      w.snap.set(p, typeof text === 'string' ? await deflateRaw(text) : null)
       files++
       if (typeof text === 'string') bytes += text.length
     }

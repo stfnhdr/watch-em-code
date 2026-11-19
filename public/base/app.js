@@ -293,7 +293,7 @@ events.addEventListener('reset', e => {
   files = new Map()
   for (const c of snap.changes) addChange(c)
   els.project.textContent = snap.project || ''
-  document.title = snap.project ? `base · ${snap.project}` : 'Watch Him Code · base'
+  document.title = snap.project ? `base · ${snap.project}` : "Watch 'Em Code · base"
   if (follow || !files.has(selected)) {
     follow = true
     selected = latestFile()?.filePath ?? null

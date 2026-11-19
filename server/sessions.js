@@ -5,7 +5,8 @@ const path = require('path')
 const { MAX_AFTER } = require('./config')
 const { repos, repoInfo, repoFor } = require('./repos')
 const { textAtSessionStart, headText } = require('./git')
-const { readText } = require('./text')
+const { readText, same, displayPath } = require('./text')
+const { lineDiff } = require('./diff')
 const { broadcast } = require('./bus')
 
 // ---------------------------------------------------------------------------
@@ -127,6 +128,9 @@ function snapshotV1() {
 
 function emitChanges(s, fresh) {
   if (!fresh.length) return
+  // Removed while a scan was running (e.g. a watched folder): sending it now
+  // would bring its tab back in the page.
+  if (sessions.get(s.id) !== s) return
   fresh.sort((a, b) => a.ts - b.ts)
   for (const c of fresh) {
     s.changes.push(c)
@@ -139,4 +143,48 @@ function emitChanges(s, fresh) {
 /** Next change id (shared by all sources). */
 const nextSeq = () => ++seq
 
-module.exports = { sessions, nextSeq, rememberBase, resolveBases, headContents, sessionInfo, slimChanges, currentContents, snapshotV2, primary, snapshotV1, emitChanges }
+/**
+ * A file changed outside the log (found through git or a watched folder):
+ * the change from `before` to `after` – or null if there's nothing to show.
+ * Content: undefined = missing, null = binary or too large. Keeps s.contents
+ * current. `source` gets "-deleted" appended when the file is gone.
+ */
+function diffChange(s, file, before, after, { source, ts, repo = null }) {
+  if (before === null || after === null) {
+    s.contents.set(file, after ?? null) // binary or too large: nothing to show
+    return null
+  }
+  if (before === undefined && after === undefined) return null
+  if (same(before, after) || (before === undefined && after === '')) {
+    if (after !== undefined) s.contents.set(file, after)
+    return null
+  }
+  const hunks = lineDiff(before ?? '', after ?? '')
+  if (!hunks.length) return null
+  let added = 0
+  let removed = 0
+  for (const h of hunks)
+    for (const l of h.lines) {
+      if (l[0] === '+') added++
+      else if (l[0] === '-') removed++
+    }
+  const change = {
+    id: nextSeq(),
+    filePath: file,
+    rel: displayPath(file, s.cwd),
+    kind: before === undefined ? 'create' : 'update',
+    hunks,
+    added,
+    removed,
+    after: after ?? '',
+    ts,
+    repo,
+    source: after === undefined ? `${source}-deleted` : source,
+  }
+  rememberBase(s, change, before ?? '')
+  if (after === undefined) s.contents.delete(file)
+  else s.contents.set(file, after)
+  return change
+}
+
+module.exports = { sessions, nextSeq, diffChange, rememberBase, resolveBases, headContents, sessionInfo, slimChanges, currentContents, snapshotV2, primary, snapshotV1, emitChanges }

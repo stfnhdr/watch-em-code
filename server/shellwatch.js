@@ -5,9 +5,8 @@ const fs = require('fs')
 const path = require('path')
 const { ACTIVE_MS } = require('./config')
 const { GIT_IDLE_MS, GIT_BUSY_MS, GIT_SETTLE_MS, getGitVersion, git, findRepos, textAt } = require('./git')
-const { sessions, nextSeq, rememberBase, headContents, emitChanges } = require('./sessions')
-const { readText, same, displayPath } = require('./text')
-const { lineDiff } = require('./diff')
+const { sessions, diffChange, headContents, emitChanges } = require('./sessions')
+const { readText } = require('./text')
 const { ignored } = require('./ignore')
 const { broadcast } = require('./bus')
 
@@ -37,9 +36,10 @@ async function scanRepo(s, root, sink) {
 
   const now = Date.now()
   for (const rel of look) {
-    // Watched folders: also leave out what .gitignore misses (.DS_Store, node_modules …)
-    if (s.kind === 'folder' && ignored(rel)) continue
     const file = path.join(root, rel)
+    // Watched folders: only files inside the folder (it may be part of a bigger
+    // repo), and leave out what .gitignore misses (.DS_Store, node_modules …)
+    if (s.kind === 'folder' && (ignored(rel) || !file.startsWith(s.cwd + path.sep))) continue
     if (!st.ready) {
       if (dirty.has(rel)) s.contents.set(file, readText(file) ?? null) // baseline only
       continue
@@ -61,43 +61,15 @@ async function scanRepo(s, root, sink) {
       s.contents.set(file, after ?? null)
       continue
     }
-    if (before === null || after === null) {
-      s.contents.set(file, after ?? null) // binary or too large: nothing to show
-      continue
-    }
-    if (before === undefined && after === undefined) continue
-    if (same(before, after) || (before === undefined && after === '')) {
-      if (after !== undefined) s.contents.set(file, after)
-      continue
-    }
-    const hunks = lineDiff(before ?? '', after ?? '')
-    if (!hunks.length) continue
-    let added = 0
-    let removed = 0
-    for (const h of hunks)
-      for (const l of h.lines) {
-        if (l[0] === '+') added++
-        else if (l[0] === '-') removed++
-      }
-    const gitChange = {
-      id: nextSeq(),
-      filePath: file,
-      rel: displayPath(file, s.cwd),
-      kind: before === undefined ? 'create' : 'update',
-      hunks,
-      added,
-      removed,
-      after: after ?? '',
+    const gitChange = diffChange(s, file, before, after, {
       ts: mtime || now,
       repo: root,
       // In a watched folder every change is just a change; in a Claude session
       // it means the agent went around its Edit/Write tools ("via shell").
-      source: s.kind === 'folder' ? (after === undefined ? 'watch-deleted' : 'watch') : after === undefined ? 'git-deleted' : 'git',
-    }
-    rememberBase(s, gitChange, before ?? '')
+      source: s.kind === 'folder' ? 'watch' : 'git',
+    })
+    if (!gitChange) continue
     sink.push(gitChange)
-    if (after === undefined) s.contents.delete(file)
-    else s.contents.set(file, after)
     s.git.count++
   }
   const committed = st.ready && st.head && head && st.head !== head

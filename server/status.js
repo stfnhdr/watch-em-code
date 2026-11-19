@@ -85,7 +85,7 @@ function statusReport() {
           'Outside git',
           w.truncated ? 'warn' : 'ok',
           w.truncated ? 'Too many files – only the first 5,000 were remembered' : w.snapDone ? 'Files remembered as the base for diffs' : 'Reading the folder …',
-          w.truncated ? 'Files that weren’t remembered show up as new when they change. Watch a smaller folder or use git.' : '',
+          w.truncated ? 'For files that weren’t remembered, the first change only sets the base. Watch a smaller folder or use git.' : '',
         )
       item('Changes', s.changes.length ? 'ok' : 'idle', s.changes.length ? `${s.changes.length} since watching started` : 'Nothing changed yet')
       list.push({ id: s.id, name, items })

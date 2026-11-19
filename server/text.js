@@ -25,6 +25,8 @@ function displayPath(file, cwd) {
   return file.split(path.sep).join('/')
 }
 
+const bufText = buf => (buf.length > MAX_AFTER || buf.includes(0) ? null : normText(buf.toString('utf8')))
+
 /** File content as text: undefined = missing, null = binary or too large. */
 function readText(file) {
   let buf
@@ -34,10 +36,23 @@ function readText(file) {
   } catch {
     return undefined
   }
-  if (buf.length > MAX_AFTER || buf.includes(0)) return null
-  return normText(buf.toString('utf8'))
+  return bufText(buf)
+}
+
+/** Like readText, without blocking the server (for reading many files). */
+async function readTextAsync(file) {
+  let buf
+  try {
+    const st = await fs.promises.stat(file)
+    if (!st.isFile()) return undefined
+    if (st.size > MAX_AFTER) return null
+    buf = await fs.promises.readFile(file)
+  } catch {
+    return undefined
+  }
+  return bufText(buf)
 }
 
 const same = (a, b) => typeof a === 'string' && typeof b === 'string' && a.replace(/\n$/, '') === b.replace(/\n$/, '')
 
-module.exports = { normText, normLine, displayPath, readText, same }
+module.exports = { normText, normLine, displayPath, readText, readTextAsync, same }
