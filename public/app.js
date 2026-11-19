@@ -38,7 +38,7 @@ const esc = Highlight.esc
 // ---------------------------------------------------------------------------
 // Settings (stored in the browser)
 
-const DEFAULTS = { view: 'editor', theme: 'system', buddy: true, diff: 'inline', avatar: 'junior', dwell: 3, autoClose: false }
+const DEFAULTS = { view: 'editor', theme: 'system', buddy: true, diff: 'inline', avatar: 'junior', dwell: 3, autoClose: false, marks: 'session' }
 const settings = { ...DEFAULTS }
 try {
   Object.assign(settings, JSON.parse(localStorage.getItem('whc.settings') || '{}'))
@@ -84,7 +84,7 @@ function applySettings(changed) {
   if (changed === 'dwell' && !settings.dwell) playNext() // flush what's waiting
   if (changed === 'autoClose') applyAutoClose()
   if (!changed || changed === 'view') els.list.innerHTML = ''
-  if (!changed || changed === 'view' || changed === 'diff') renderAll()
+  if (!changed || changed === 'view' || changed === 'diff' || changed === 'marks') renderAll()
 }
 
 els.settings.addEventListener('click', e => {
@@ -294,7 +294,7 @@ let connected = false
 let repos = new Map()
 
 function newSession(info) {
-  return { info, files: new Map(), last: null, all: [], latest: new Map() }
+  return { info, files: new Map(), last: null, all: [], latest: new Map(), bases: new Map(), nows: new Map() }
 }
 
 // Memory: the app may run for days in the background. Keep the full file
@@ -330,6 +330,11 @@ function rebuild(s) {
   s.files = new Map()
   s.last = null
   for (const c of s.all) if (shownChange(s.info.id, c)) addChange(s, c)
+  // What's on disk now, where it differs from the newest logged version
+  for (const [file, text] of s.nows) {
+    const f = s.files.get(file)
+    if (f) f.content = text
+  }
 }
 
 function freshStart() {
@@ -723,11 +728,12 @@ function renderTree(s, flashPath) {
     for (const f of [...node.files].sort((a, b) => a.rel.localeCompare(b.rel))) {
       const st = f.kind === 'create' ? 'A' : 'M'
       const name = split(f.rel).name
+      const n = net(f)
       const cls = ['node', 'file', st, f.filePath === selected ? 'selected' : '', f.filePath === flashPath ? 'flash' : ''].join(' ')
       rows.push(
         `<button class="${cls}" data-path="${esc(f.filePath)}" style="padding-left:${8 + depth * 14 + 16}px" title="${esc(f.rel)}">` +
           `${fileIcon(name)}<span class="name">${esc(name)}</span>` +
-          `<span class="counts"><span class="plus">+${f.added}</span> <span class="minus">−${f.removed}</span></span>` +
+          `<span class="counts"><span class="plus">+${n.added}</span> <span class="minus">−${n.removed}</span></span>` +
           `<span class="status ${st}">${st}</span></button>`,
       )
     }
@@ -757,11 +763,13 @@ function cardHtml(f, width) {
 function renderCards(s, flashPath) {
   for (const n of els.list.querySelectorAll(':scope > :not(.card)')) n.remove()
   const list = [...s.files.values()].sort((a, b) => b.last - a.last)
-  const biggest = Math.max(1, ...list.map(f => f.added + f.removed))
+  const nets = new Map(list.map(f => [f, net(f)]))
+  const biggest = Math.max(1, ...list.map(f => nets.get(f).added + nets.get(f).removed))
   const existing = new Map([...els.list.querySelectorAll('.card')].map(el => [el.dataset.path, el]))
 
   list.forEach((f, i) => {
-    const total = f.added + f.removed
+    const n = nets.get(f)
+    const total = n.added + n.removed
     const width = total ? Math.max(8, Math.round((total / biggest) * 100)) : 0
     let el = existing.get(f.filePath)
     if (!el) {
@@ -778,10 +786,10 @@ function renderCards(s, flashPath) {
     requestAnimationFrame(() => {
       const fill = el.querySelector('.fill')
       fill.style.width = width + '%'
-      fill.querySelector('.a').style.flexGrow = f.added
-      fill.querySelector('.d').style.flexGrow = f.removed
-      el.querySelector('.plus').textContent = `+${f.added}`
-      el.querySelector('.minus').textContent = `−${f.removed}`
+      fill.querySelector('.a').style.flexGrow = n.added
+      fill.querySelector('.d').style.flexGrow = n.removed
+      el.querySelector('.plus').textContent = `+${n.added}`
+      el.querySelector('.minus').textContent = `−${n.removed}`
       const when = el.querySelector('.when')
       when.dataset.ts = f.last
       when.textContent = ago(f.last)
@@ -842,7 +850,18 @@ function renderJumpbar() {
       f.changes.length === 1 ? (f.kind === 'create' ? 'created' : '1 change') : `${f.changes.length} changes`
     } · ` +
     `<span class="when" data-ts="${last.ts}">${ago(last.ts)}</span> · ` +
-    `<span class="plus">+${last.added}</span> <span class="minus">−${last.removed}</span></span>`
+    netHtml(f, last) +
+    `</span>`
+}
+
+/** +/- in the jump bar: net for the file when edits are combined, else the newest edit. */
+function netHtml(f, last) {
+  const combinedView = combined(f)
+  const n = combinedView ? net(f) : last
+  const title = combinedView
+    ? `Net change ${clearedAt.has(cur()?.info.id) ? 'since the fresh start' : 'in this session'} · newest edit: +${last.added} −${last.removed}`
+    : 'Newest edit'
+  return `<span title="${esc(title)}"><span class="plus">+${n.added}</span> <span class="minus">−${n.removed}</span></span>`
 }
 
 // ---------------------------------------------------------------------------
@@ -877,6 +896,128 @@ function unpatch(after, hunks) {
   }
   while (j < src.length) out.push(src[j++])
   return out.join('\n')
+}
+
+/** Line diff old -> new as hunks (same format as the log's structuredPatch). */
+function diffLines(before, after, ctx = 3) {
+  const toLines = t => (t === '' ? [] : t.replace(/\n$/, '').split('\n'))
+  const a = toLines(before)
+  const b = toLines(after)
+  let pre = 0
+  while (pre < a.length && pre < b.length && a[pre] === b[pre]) pre++
+  let suf = 0
+  while (suf < a.length - pre && suf < b.length - pre && a[a.length - 1 - suf] === b[b.length - 1 - suf]) suf++
+  const A = a.slice(pre, a.length - suf)
+  const B = b.slice(pre, b.length - suf)
+  let mid
+  if (A.length * B.length > 4e6) mid = [...A.map(l => ['-', l]), ...B.map(l => ['+', l])]
+  else {
+    const n = A.length
+    const m = B.length
+    const w = m + 1
+    const t = new Uint32Array((n + 1) * w)
+    for (let i = n - 1; i >= 0; i--)
+      for (let j = m - 1; j >= 0; j--)
+        t[i * w + j] = A[i] === B[j] ? t[(i + 1) * w + j + 1] + 1 : Math.max(t[(i + 1) * w + j], t[i * w + j + 1])
+    mid = []
+    let i = 0
+    let j = 0
+    while (i < n && j < m) {
+      if (A[i] === B[j]) {
+        mid.push([' ', A[i++]])
+        j++
+      } else if (t[(i + 1) * w + j] >= t[i * w + j + 1]) mid.push(['-', A[i++]])
+      else mid.push(['+', B[j++]])
+    }
+    while (i < n) mid.push(['-', A[i++]])
+    while (j < m) mid.push(['+', B[j++]])
+  }
+  const ops = [...a.slice(0, pre).map(l => [' ', l]), ...mid, ...a.slice(a.length - suf).map(l => [' ', l])]
+  const oldNo = []
+  const newNo = []
+  let o = 1
+  let nn = 1
+  for (const op of ops) {
+    oldNo.push(o)
+    newNo.push(nn)
+    if (op[0] !== '+') o++
+    if (op[0] !== '-') nn++
+  }
+  const changed = []
+  ops.forEach((op, k) => op[0] !== ' ' && changed.push(k))
+  const hunks = []
+  for (let g = 0; g < changed.length; g++) {
+    const first = changed[g]
+    let last = first
+    while (g + 1 < changed.length && changed[g + 1] - last <= 2 * ctx + 1) last = changed[++g]
+    const from = Math.max(0, first - ctx)
+    const to = Math.min(ops.length - 1, last + ctx)
+    const lines = []
+    let ol = 0
+    let nl = 0
+    for (let k = from; k <= to; k++) {
+      lines.push(ops[k][0] + ops[k][1])
+      if (ops[k][0] !== '+') ol++
+      if (ops[k][0] !== '-') nl++
+    }
+    hunks.push({ oldStart: ol ? oldNo[from] : oldNo[from] - 1, oldLines: ol, newStart: nl ? newNo[from] : newNo[from] - 1, newLines: nl, lines })
+  }
+  return hunks
+}
+
+/**
+ * What actually changed in a file during this session (or since its fresh
+ * start), like `git diff`: all edits combined into one. Null when marks are set
+ * to "latest edit", there is only one edit, or the whole content is unknown.
+ */
+function combined(f) {
+  if (settings.marks === 'latest' || f.content === null) return null
+  const s = cur()
+  const fresh = !!s && clearedAt.has(s.info.id)
+  const base = !fresh && s ? s.bases.get(f.filePath) : undefined
+  if (f.cum && f.cum.n === f.changes.length && f.cum.content === f.content && f.cum.fresh === fresh) return f.cum.change
+
+  // Whole session: the content before the session first touched the file
+  // against now – like git diff, also catches edits missing from the log.
+  if (typeof base === 'string') {
+    const change = { kind: base === '' ? 'create' : 'update', hunks: diffLines(base, f.content) }
+    f.cum = { n: f.changes.length, content: f.content, fresh, change }
+    return change
+  }
+  if (f.changes.length < 2) return null
+  // Walk back from the current content through the edits since the fresh start.
+  let prior = f.content
+  for (let i = f.changes.length - 1; i >= 0; i--) {
+    const c = f.changes[i]
+    if (i === 0 && c.kind === 'create') {
+      prior = ''
+      break
+    }
+    prior = unpatch(prior, c.hunks)
+  }
+  let change = { kind: prior === '' ? 'create' : 'update', hunks: diffLines(prior, f.content) }
+  // Plausibility: the net change can't be bigger than all edits together.
+  // If it is, the chain of edits has a gap – show the newest edit instead.
+  let size = 0
+  for (const h of change.hunks) for (const l of h.lines) if (l[0] !== ' ') size++
+  if (size > f.added + f.removed) change = null
+  f.cum = { n: f.changes.length, content: f.content, fresh, change }
+  return change
+}
+
+/** Net +/- of a file: combined when possible, else the sum of its edits. */
+function net(f) {
+  const c = combined(f) || (f.changes.length === 1 ? f.changes[0] : null)
+  if (!c) return { added: f.added, removed: f.removed }
+  if (c.added !== undefined) return { added: c.added, removed: c.removed }
+  let added = 0
+  let removed = 0
+  for (const h of c.hunks)
+    for (const l of h.lines) {
+      if (l[0] === '+') added++
+      else if (l[0] === '-') removed++
+    }
+  return { added, removed }
 }
 
 /** Lines of a hunk aligned in pairs: ctx | mod | del | add. */
@@ -985,9 +1126,10 @@ function renderMain(animate, changeId) {
   }
   if (settings.view === 'cards') return renderDiff(f, animate ? changeId : null)
   const c = f.changes[f.changes.length - 1]
-  const { mode } = diffMode(c)
-  if (mode === 'split') renderEditorSplit(f, c, animate)
-  else renderEditor(f, animate, mode === 'inline')
+  const cum = combined(f) // all edits of this session (or since the fresh start) as one
+  const { mode } = diffMode(cum || c)
+  if (mode === 'split') renderEditorSplit(f, cum || c, animate)
+  else renderEditor(f, animate, mode === 'inline', cum)
 }
 
 function renderEditorSplit(f, c, animate) {
@@ -1070,7 +1212,7 @@ function applyStagger() {
   }
 }
 
-function renderEditor(f, animate, showGhosts = true) {
+function renderEditor(f, animate, showGhosts = true, cum = null) {
   const c = f.changes[f.changes.length - 1]
   const lang = Highlight.langOf(f.filePath)
   const state = { block: null }
@@ -1100,23 +1242,28 @@ function renderEditor(f, animate, showGhosts = true) {
     return
   }
 
-  const { marks, ghosts, first } = markers(c)
+  // Marks: everything since the fresh start (cum) or the newest edit.
+  // Animation and flying-out ghosts: only the newest edit.
+  const latest = markers(c)
+  const { marks, ghosts: delmarks } = cum ? markers(cum) : latest
+  const { ghosts, first } = latest
   const lines = f.content.split('\n')
   if (lines.length > 1 && lines[lines.length - 1] === '') lines.pop()
   let staggered = 0
   const total = Math.min(lines.length, MAX_ROWS)
   for (let i = 1; i <= total + 1; i++) {
     const del = ghosts.get(i)
-    if (del) {
+    if (del && animate && showGhosts) {
       const dstate = { block: null }
-      if (animate && showGhosts) for (const d of del) out.push(rowHtml('', 'ghost', Highlight.line(d, lang, dstate)))
-      out.push(`<i data-delmark="${esc(del.join('\n'))}"></i>`) // wedge on the following line
+      for (const d of del) out.push(rowHtml('', 'ghost', Highlight.line(d, lang, dstate)))
     }
+    const wedge = delmarks.get(i)
+    if (wedge) out.push(`<i data-delmark="${esc(wedge.join('\n'))}"></i>`) // wedge on the following line
     if (i > total) break
     const mark = marks.get(i)
     let cls = mark || ''
     let delay
-    if (mark && animate) {
+    if (mark && animate && latest.marks.has(i)) {
       cls += ' fresh'
       if (staggered < STAGGER_MAX) delay = staggered++
     }
@@ -1429,8 +1576,10 @@ events.addEventListener('reset', e => {
   const snap = JSON.parse(e.data)
   const next = new Map()
   for (const si of snap.sessions) {
-    const { changes, ...info } = si
+    const { changes, bases, nows, ...info } = si
     const s = newSession(info)
+    s.bases = new Map(Object.entries(bases || {}))
+    s.nows = new Map(Object.entries(nows || {}))
     s.all = []
     for (const c of changes) remember(s, c)
     rebuild(s)
@@ -1486,6 +1635,8 @@ function receive(sid, c) {
     s = newSession({ id: sid, project: '', cwd: '', title: '', active: Date.now() })
     sessions.set(sid, s)
   }
+  if ('base' in c && !s.bases.has(c.filePath)) s.bases.set(c.filePath, c.base)
+  s.nows.delete(c.filePath) // a live change brings the current content
   remember(s, c)
   if (!shownChange(sid, c)) return // before this session's fresh start
   const f = addChange(s, c)

@@ -42,8 +42,13 @@ dependencies**. `npm install` is not part of this story.
   tells you which one is currently busy rewriting your life. Close a tab and it comes back when
   that session gets busy again; *+* opens older sessions. Idle tabs stay open unless you set
   *Close idle tabs → After 1 h*.
+- **What really changed, like `git diff`.** Each file shows everything the session changed in it
+  as one diff – several edits combined, against the committed state when the session started
+  (outside git: the content before the first edit). The newest edit is still animated.
+  *Settings → Marks → Latest edit* marks only the newest edit instead.
 - **Fresh start.** Long session, then a PR, then review comments? Press `c` (or the broom) and
-  the tab only shows changes from now on. Earlier ones are just hidden – one click brings them back.
+  the tab only shows what changed from now on – again combined per file. Earlier changes are
+  just hidden: closing the *since* pill brings back the whole session.
 - **No frantic jumping.** Each change stays on screen for a few seconds (*Show each change*,
   0–10 s); files changed meanwhile queue up and play in order. `Esc` jumps to the newest.
 - **Git branch awareness.** Shows the branch of the repo each file lives in – including nested

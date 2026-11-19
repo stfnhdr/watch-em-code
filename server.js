@@ -169,8 +169,12 @@ function toChange(entry, seq) {
       else if (l[0] === '-') removed++
     }
 
+  // Content before this change: empty for a new file, else the log's old content.
+  const before = isCreate ? '' : typeof r.originalFile === 'string' ? normText(r.originalFile) : null
+
   const cwd = typeof entry.cwd === 'string' ? entry.cwd : ''
   return {
+    before,
     id: seq,
     filePath,
     rel: displayPath(filePath, cwd),
@@ -360,6 +364,7 @@ function addSession(info) {
     changes: [],
     logs: new Map(),
     contents: new Map(),
+    bases: new Map(), // file -> content when it first changed in this session (for the session diff)
     tools: { edit: 0, shell: 0, mcp: 0 }, // tool calls seen, for the status view
     // git fallback: repo root -> { head, dirty: Set<rel>, ready }
     git: { repos: new Map(), roots: [], found: 0, busy: false, wanted: true, last: 0, count: 0 },
@@ -460,6 +465,58 @@ function committedText(file) {
   }
 }
 
+/**
+ * First time a file changes in a session: remember its content before that
+ * change. The UI diffs it against the current content to show what changed in
+ * the session overall – also edits that never made it into the log.
+ */
+function rememberBase(s, c, before) {
+  if (s.bases.has(c.filePath)) return
+  // In a git repo: the committed state when the session started (like git diff).
+  // Otherwise: the old content from the log or the last version we know.
+  let base = textAtSessionStart(s, c.filePath)
+  if (base === null) base = typeof before === 'string' && before.length <= MAX_AFTER ? before : null
+  s.bases.set(c.filePath, base)
+  c.base = base // sent along with this first change
+}
+
+/**
+ * The file as it was committed when the session started (the last commit
+ * before its first log entry): '' if it didn't exist then, null if unknown.
+ * Base for the session diff when the log has no old content (large files,
+ * shell edits before the app was running).
+ */
+function textAtSessionStart(s, file) {
+  const root = repoFor(path.dirname(file))
+  if (!root || !s.started) return null
+  const git = args =>
+    execFileSync('git', ['--no-optional-locks', ...args], {
+      cwd: root,
+      timeout: 3000,
+      maxBuffer: MAX_AFTER + 1,
+      stdio: ['ignore', 'pipe', 'ignore'],
+      windowsHide: true,
+    })
+  try {
+    if (!s.startCommit) {
+      const sha = git(['rev-list', '-1', `--before=@${Math.floor(s.started / 1000)}`, 'HEAD']).toString().trim()
+      s.startCommit = new Map()
+      s.startCommit.set(root, sha)
+    } else if (!s.startCommit.has(root)) {
+      s.startCommit.set(root, git(['rev-list', '-1', `--before=@${Math.floor(s.started / 1000)}`, 'HEAD']).toString().trim())
+    }
+    const sha = s.startCommit.get(root)
+    if (!sha) return null
+    const rel = path.relative(root, file).split(path.sep).join('/')
+    if (!git(['ls-tree', '--name-only', sha, '--', rel]).toString().trim()) return '' // not there yet
+    const buf = git(['show', `${sha}:${rel}`])
+    if (buf.length > MAX_AFTER || buf.includes(0)) return null
+    return normText(buf.toString('utf8'))
+  } catch {
+    return null
+  }
+}
+
 /** Reads new complete lines of a log file. */
 function readNew(s, file, sink, live = false) {
   let log = s.logs.get(file)
@@ -496,6 +553,7 @@ function readNew(s, file, sink, live = false) {
         continue
       }
       if (typeof entry.cwd === 'string' && (!entry.isSidechain || !s.cwd)) s.cwd = entry.cwd
+      if (!s.started && entry.timestamp) s.started = Date.parse(entry.timestamp) || 0
       countTools(s, entry)
       const change = toChange(entry, ++seq)
       if (change) {
@@ -512,6 +570,8 @@ function readNew(s, file, sink, live = false) {
             }
         }
         delete change.needsBase
+        rememberBase(s, change, change.before ?? (typeof prev === 'string' ? prev : null))
+        delete change.before
         fillAfter(s, change)
         change.repo = repoFor(path.dirname(change.filePath))
         sink.push(change)
@@ -543,9 +603,31 @@ function slimChanges(changes) {
   return changes.map(c => (latest.get(c.filePath) === c.id ? c : { ...c, after: null }))
 }
 
+/**
+ * Files of a session whose content on disk differs from the newest version we
+ * know (edits that never made it into the log, or unknown content). The UI
+ * shows and diffs what's really there now – like git diff.
+ */
+function currentContents(s) {
+  const latest = new Map()
+  for (const c of s.changes) latest.set(c.filePath, c)
+  const out = {}
+  for (const [file, c] of latest) {
+    if (!s.bases.has(file)) continue // only needed for the session diff
+    const disk = readText(file)
+    if (typeof disk === 'string' && disk !== c.after) out[file] = disk
+  }
+  return out
+}
+
 function snapshotV2() {
   return {
-    sessions: [...sessions.values()].map(s => ({ ...sessionInfo(s), changes: slimChanges(s.changes) })),
+    sessions: [...sessions.values()].map(s => ({
+      ...sessionInfo(s),
+      changes: slimChanges(s.changes).map(c => ({ ...c, base: undefined })),
+      bases: Object.fromEntries(s.bases),
+      nows: currentContents(s),
+    })),
     repos: [...repos.values()].map(repoInfo),
   }
 }
@@ -727,7 +809,7 @@ async function scanRepo(s, root, sink) {
         if (l[0] === '+') added++
         else if (l[0] === '-') removed++
       }
-    sink.push({
+    const gitChange = {
       id: ++seq,
       filePath: file,
       rel: displayPath(file, s.cwd),
@@ -739,7 +821,9 @@ async function scanRepo(s, root, sink) {
       ts: mtime || now,
       repo: root,
       source: after === undefined ? 'git-deleted' : 'git',
-    })
+    }
+    rememberBase(s, gitChange, before ?? '')
+    sink.push(gitChange)
     if (after === undefined) s.contents.delete(file)
     else s.contents.set(file, after)
     s.git.count++
