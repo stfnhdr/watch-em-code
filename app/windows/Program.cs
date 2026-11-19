@@ -7,7 +7,9 @@ using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -164,9 +166,16 @@ namespace WatchHimCode
             web.CoreWebView2.Settings.IsStatusBarEnabled = false;
             web.CoreWebView2.WebMessageReceived += (s, e) =>
             {
-                // The page reports its theme: adjust the title bar
                 string json = e.WebMessageAsJson ?? "";
+                // The page reports its theme: adjust the title bar
                 if (json.Contains("\"theme\"")) SetDarkTitleBar(json.Contains("\"dark\""));
+                // Links (e.g. "What's new") open in the default browser
+                var open = Regex.Match(json, "\"open\"\\s*:\\s*\"(https://[^\"]+)\"");
+                if (open.Success)
+                    try { Process.Start(new ProcessStartInfo(open.Groups[1].Value) { UseShellExecute = true }); } catch { }
+                // "Install & restart" clicked
+                var update = Regex.Match(json, "\"update\"\\s*:\\s*\\{[^}]*\"url\"\\s*:\\s*\"(https://[^\"]+)\"");
+                if (update.Success) _ = InstallUpdateAsync(update.Groups[1].Value);
             };
             await Task.Run(() => Start());
         }
@@ -184,6 +193,90 @@ namespace WatchHimCode
                 "<body style=\"margin:0;height:100vh;display:grid;place-content:center;text-align:center;" +
                 "font:15px 'Segoe UI',sans-serif;background:#1f1f23;color:#dcdce0\">" +
                 $"<h2 style=\"font-weight:600\">{title}</h2><p style=\"color:#8e8e96\">{detail}</p></body>")));
+        }
+
+        // ---------------------------------------------------------------
+        // Update (only when the user clicks "Install & restart")
+
+        const string ReleaseDownloads = "https://github.com/stfnhdr/watch-him-code/releases/download/";
+
+        void ReportUpdate(string state, string message = "")
+        {
+            string json = "{\"state\":\"" + state + "\",\"message\":\"" + JsonEscape(message) + "\"}";
+            BeginInvoke(new Action(() =>
+                web.CoreWebView2?.ExecuteScriptAsync($"window.whcUpdateState && window.whcUpdateState({json})")));
+        }
+
+        static string JsonEscape(string s) =>
+            (s ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\r", " ").Replace("\n", " ");
+
+        async Task InstallUpdateAsync(string link)
+        {
+            // Only official release downloads from this repository.
+            if (!link.StartsWith(ReleaseDownloads, StringComparison.Ordinal))
+            {
+                ReportUpdate("error", "Unexpected download address.");
+                return;
+            }
+            string appDir = AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\');
+            try
+            {
+                string probe = Path.Combine(appDir, ".whc-write-test");
+                File.WriteAllText(probe, "");
+                File.Delete(probe);
+            }
+            catch
+            {
+                ReportUpdate("error", $"No permission to replace the app in {appDir}. Download the new version from the release page instead.");
+                return;
+            }
+
+            ReportUpdate("downloading");
+            string work = Path.Combine(Path.GetTempPath(), "whc-update-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                Directory.CreateDirectory(work);
+                string zip = Path.Combine(work, "update.zip");
+                ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
+                using (var http = new HttpClient { Timeout = TimeSpan.FromMinutes(5) })
+                {
+                    http.DefaultRequestHeaders.UserAgent.ParseAdd("watch-him-code");
+                    File.WriteAllBytes(zip, await http.GetByteArrayAsync(link));
+                }
+                string unpacked = Path.Combine(work, "unpacked");
+                ZipFile.ExtractToDirectory(zip, unpacked);
+                string exe = Directory.GetFiles(unpacked, "WatchHimCode.exe", SearchOption.AllDirectories).FirstOrDefault();
+                if (exe == null) throw new Exception("The download does not contain Watch Him Code.");
+                string newDir = Path.GetDirectoryName(exe);
+
+                ReportUpdate("installing");
+                // A running .exe can't be replaced: a small script waits until we
+                // have quit, copies the new files over and starts the new version.
+                int pid = Process.GetCurrentProcess().Id;
+                string script = Path.Combine(Path.GetTempPath(), "whc-update-" + pid + ".cmd");
+                File.WriteAllText(script, string.Join("\r\n", new[]
+                {
+                    "@echo off",
+                    ":wait",
+                    $"tasklist /FI \"PID eq {pid}\" 2>nul | find \"{pid}\" >nul && (timeout /t 1 /nobreak >nul & goto wait)",
+                    $"robocopy \"{newDir}\" \"{appDir}\" /E /R:5 /W:1 /NFL /NDL /NJH /NJS /NP >nul",
+                    $"start \"\" \"{Path.Combine(appDir, "WatchHimCode.exe")}\"",
+                    $"rmdir /s /q \"{work}\"",
+                    "(goto) 2>nul & del \"%~f0\"",
+                }) + "\r\n");
+                Process.Start(new ProcessStartInfo("cmd.exe", $"/c \"\"{script}\"\"")
+                {
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    WindowStyle = ProcessWindowStyle.Hidden,
+                });
+                BeginInvoke(new Action(Quit));
+            }
+            catch (Exception ex)
+            {
+                ReportUpdate("error", "Update failed: " + ex.Message);
+                try { Directory.Delete(work, true); } catch { }
+            }
         }
 
         // ---------------------------------------------------------------
@@ -218,6 +311,8 @@ namespace WatchHimCode
             psi.EnvironmentVariables["WHC_NO_OPEN"] = "1";
             // Server exits if the app crashes
             psi.EnvironmentVariables["WHC_PARENT_PID"] = Process.GetCurrentProcess().Id.ToString();
+            var v = typeof(MainForm).Assembly.GetName().Version;
+            psi.EnvironmentVariables["WHC_APP_VERSION"] = $"{v.Major}.{v.Minor}.{v.Build}";
 
             var p = new Process { StartInfo = psi, EnableRaisingEvents = true };
             DataReceivedEventHandler onLine = (s, e) =>

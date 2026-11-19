@@ -19,6 +19,9 @@ const ACTIVE_MS = 30 * 60 * 1000 // a session counts as active for this long
 const MAX_SESSIONS = 6
 const MAX_AFTER = 2 * 1024 * 1024 // larger files only as diff
 const PUBLIC = path.join(__dirname, 'public')
+// The Mac/Windows app passes its own version; this is the fallback for `node server.js`.
+// When releasing, bump it together with app/macos/Info.plist and app/windows/WatchHimCode.csproj.
+const VERSION = process.env.WHC_APP_VERSION || '0.3.0'
 
 // ---------------------------------------------------------------------------
 // Reading the logs
@@ -776,6 +779,56 @@ function scan() {
 
 const home = p => displayPath(p, '')
 
+// ---------------------------------------------------------------------------
+// Update check: asks GitHub for the latest release now and then. Installing is
+// up to the Mac/Windows app, and only when the user clicks.
+
+const RELEASES = 'https://api.github.com/repos/stfnhdr/watch-him-code/releases/latest'
+const UPDATE_EVERY_MS = 6 * 60 * 60 * 1000
+const UPDATE_CHECK = process.env.WHC_UPDATE_CHECK !== '0'
+let update = { checked: 0, latest: '', name: '', page: '', assets: {}, error: '' }
+
+const parseVersion = v => (String(v).replace(/^v/, '').match(/\d+/g) || []).slice(0, 3).map(Number)
+function newer(a, b) {
+  const x = parseVersion(a)
+  const y = parseVersion(b)
+  for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0)
+  return false
+}
+
+async function checkUpdate() {
+  if (!UPDATE_CHECK || typeof fetch !== 'function') return
+  try {
+    const res = await fetch(RELEASES, {
+      headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'watch-him-code' },
+      signal: AbortSignal.timeout(10000),
+    })
+    if (!res.ok) throw new Error(`GitHub answered ${res.status}`)
+    const r = await res.json()
+    const assets = {}
+    for (const a of r.assets || []) {
+      if (/macos\.zip$/i.test(a.name)) assets.mac = a.browser_download_url
+      if (/windows\.zip$/i.test(a.name)) assets.windows = a.browser_download_url
+    }
+    update = { checked: Date.now(), latest: String(r.tag_name || '').replace(/^v/, ''), name: r.name || '', page: r.html_url || '', assets, error: '' }
+  } catch (e) {
+    update = { ...update, checked: Date.now(), error: e.message }
+  }
+}
+
+function updateInfo() {
+  return {
+    current: VERSION,
+    latest: update.latest,
+    available: !!update.latest && newer(update.latest, VERSION),
+    name: update.name,
+    page: update.page,
+    assets: update.assets,
+    enabled: UPDATE_CHECK,
+    error: update.error,
+  }
+}
+
 function statusReport() {
   const checks = []
   const add = (label, state, detail, fix) => checks.push({ label, state, detail, fix: fix || '' })
@@ -889,7 +942,7 @@ function statusReport() {
   const rank = { ok: 0, idle: 1, warn: 2, fail: 3 }
   const all = [...checks, ...list.flatMap(s => s.items)]
   const worst = all.reduce((w, c) => (rank[c.state] > rank[w] ? c.state : w), 'ok')
-  return { state: worst, checks, sessions: list, platform: process.platform }
+  return { state: worst, checks, sessions: list, platform: process.platform, update: updateInfo() }
 }
 
 // ---------------------------------------------------------------------------
@@ -1081,6 +1134,8 @@ function listen(port) {
     setInterval(poll, POLL_MS)
     setInterval(scan, SCAN_MS)
     checkGit()
+    setTimeout(checkUpdate, 5000).unref()
+    setInterval(checkUpdate, UPDATE_EVERY_MS).unref()
     setInterval(gitFallbackTick, 1000)
     // Started by the Mac/Windows app: exit together with it
     const parent = Number(process.env.WHC_PARENT_PID) || 0

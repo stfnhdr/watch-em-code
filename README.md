@@ -50,6 +50,8 @@ dependencies**. `npm install` is not part of this story.
 - **The Pixel Junior.** See below. He's the best part. He knows it.
 - **Real apps.** A native Mac app and a Windows app, about 1 MB each. Double-click, done.
   Closing the window keeps them watching in the background (Dock / tray); quit to really stop.
+- **Updates itself – when you say so.** A new release shows up as a little ↑ button. One click
+  on *Install & restart* and the app replaces itself. No ZIP juggling.
 
 ![Side-by-side diff](docs/screenshots/side-by-side-dark.png)
 
@@ -145,8 +147,19 @@ terminal and the desktop app. Watch Him Code:
 4. reconstructs the full file around each change and streams it to the window via
    Server-Sent Events.
 
-It listens on `127.0.0.1` only. Nothing leaves your machine, nothing is uploaded, nothing is
-"synced to the cloud for a better experience".
+It listens on `127.0.0.1` only. Your code, logs and sessions never leave your machine, nothing
+is uploaded, nothing is "synced to the cloud for a better experience".
+
+The one thing that does go out: every 6 hours it asks GitHub's public API for the latest release
+(no login, no data about you or your code – GitHub just sees your IP, like any download). Turn
+it off with `WHC_UPDATE_CHECK=0`.
+
+**Updates:** if there's a newer release, a ↑ button appears in the title bar. In the Mac and
+Windows app, *Install & restart* downloads the release ZIP from this repository's GitHub
+releases, swaps the app and restarts it – only when you click. Running it with
+`node server.js`? Then you get a link to the release (or just `git pull`).
+On a Mac, macOS may ask again for folder access after an update – the app is only signed
+locally, so every new version looks like a new app to it.
 
 **Shell edits:** if the agent changes files via shell commands (`sed`, scripts, MCP tools …),
 there's no diff in the log. So after every tool call (and every 8 s while a session is busy)
@@ -172,6 +185,13 @@ Prefer the Edit/Write tools over shell commands (sed, echo >, heredocs, scripts)
 | `WHC_BROWSER=default` | Default browser instead of app window |
 | `WHC_GIT=0`           | No git fallback for shell edits       |
 | `CLAUDE_CONFIG_DIR`   | Read logs from there instead of `~/.claude` |
+| `WHC_UPDATE_CHECK=0`  | Don't check GitHub for new versions   |
+
+**Releasing:** bump the version in `server.js` (`VERSION`), `app/macos/Info.plist` and
+`app/windows/WatchHimCode.csproj`, build both apps, zip the Mac app
+(`ditto -c -k --keepParent "dist/Watch Him Code.app" dist/WatchHimCode-macOS.zip`) and attach
+`WatchHimCode-macOS.zip` and `WatchHimCode-windows.zip` to a GitHub release tagged `vX.Y.Z`.
+The asset names must stay exactly like that – the updater looks for them.
 
 ## Project layout
 

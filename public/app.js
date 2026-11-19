@@ -22,6 +22,7 @@ const els = {
   settingsBtn: $('settings-btn'),
   settings: $('settings'),
   statusBtn: $('status-btn'),
+  updatePill: $('update-pill'),
   status: $('status'),
   toast: $('toast'),
   buddy: $('buddy'),
@@ -133,14 +134,104 @@ function checkHtml(c) {
   )
 }
 
+// ---------------------------------------------------------------------------
+// Updates: the server checks GitHub; the Mac/Windows app installs on click.
+
+const host = window.webkit?.messageHandlers?.whc
+  ? m => window.webkit.messageHandlers.whc.postMessage(m)
+  : window.chrome?.webview
+    ? m => window.chrome.webview.postMessage(m)
+    : null
+const hostKind = window.webkit?.messageHandlers?.whc ? 'mac' : window.chrome?.webview ? 'windows' : ''
+let updateInfo = null
+let installState = null // { state: downloading | installing | error, message }
+
+/** Called by the Mac/Windows app while it installs an update. */
+window.whcUpdateState = s => {
+  installState = s
+  if (s.state === 'error') toggleStatus(true)
+  renderUpdateBox()
+}
+
+function openExternal(url) {
+  if (host) host({ open: url })
+  else window.open(url, '_blank', 'noopener')
+}
+
+function renderUpdatePill(u) {
+  const show = !!(u && u.available)
+  els.updatePill.hidden = !show
+  if (!show) return
+  els.updatePill.innerHTML = `<span class="arrow">↑</span> ${esc(u.latest)}`
+  els.updatePill.title = `Version ${u.latest} is available – you have ${u.current}`
+  // Mention it once per version.
+  try {
+    if (localStorage.getItem('whc.updateSeen') !== u.latest) {
+      localStorage.setItem('whc.updateSeen', u.latest)
+      toast(`↑ Watch Him Code ${esc(u.latest)} is available – click the ↑ button to update`)
+    }
+  } catch {}
+}
+
+function updateBoxHtml() {
+  const u = updateInfo
+  if (!u || !u.available) return ''
+  const asset = hostKind && u.assets ? u.assets[hostKind] : null
+  let action
+  if (installState && installState.state === 'downloading') action = `<span class="busy">Downloading …</span>`
+  else if (installState && installState.state === 'installing') action = `<span class="busy">Installing – restarting in a moment …</span>`
+  else if (host && asset) action = `<button class="primary" data-act="install">Install &amp; restart</button>`
+  else action = `<button class="primary" data-act="page">Download</button>`
+  const err = installState && installState.state === 'error' ? `<div class="fix">${esc(installState.message || 'Update failed.')}</div>` : ''
+  return `<div class="update-box">
+      <div class="what">Version ${esc(u.latest)} is available</div>
+      <div class="detail">You have ${esc(u.current)}${u.name ? ` · ${esc(u.name)}` : ''}</div>
+      ${err}
+      <div class="actions">${action}<button data-act="page">What's new</button></div>
+    </div>`
+}
+
+function renderUpdateBox() {
+  const box = els.status.querySelector('.update-box')
+  if (box) box.outerHTML = updateBoxHtml()
+}
+
+els.updatePill.addEventListener('click', e => {
+  e.stopPropagation()
+  toggleStatus(true)
+})
+
+els.status.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]')
+  if (!b || !updateInfo) return
+  if (b.dataset.act === 'page') openExternal(updateInfo.page)
+  if (b.dataset.act === 'install') {
+    installState = { state: 'downloading' }
+    renderUpdateBox()
+    host({ update: { url: updateInfo.assets[hostKind], version: updateInfo.latest } })
+  }
+})
+
 function renderStatus(r) {
   els.statusBtn.dataset.state = r.state
   els.statusBtn.title = 'Status – ' + STATUS_TEXT[r.state]
+  updateInfo = r.update || null
+  renderUpdatePill(updateInfo)
   if (els.status.hidden) return
-  let html = `<h4>Status</h4><div class="summary">${STATUS_TEXT[r.state]}</div>`
+  let html = `<h4>Status</h4><div class="summary">${STATUS_TEXT[r.state]}</div>` + updateBoxHtml()
   html += r.checks.map(checkHtml).join('')
   for (const s of r.sessions) html += `<div class="group">${esc(s.name)}</div>` + s.items.map(checkHtml).join('')
-  html += `<div class="foot">Updates every few seconds while open.</div>`
+  const u = r.update
+  const ver = !u
+    ? ''
+    : !u.enabled
+      ? ` · Version ${esc(u.current)}, update check off`
+      : u.available
+        ? ` · Version ${esc(u.current)}`
+        : u.latest
+          ? ` · Version ${esc(u.current)}, up to date`
+          : ` · Version ${esc(u.current)}`
+  html += `<div class="foot">Updates every few seconds while open${ver}.</div>`
   els.status.innerHTML = html
 }
 

@@ -36,7 +36,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        server?.terminate()
+        guard let server = server, server.isRunning else { return }
+        server.terminate()
+        // Wait briefly so a restarted app (update) doesn't find the old server still answering.
+        let deadline = Date().addingTimeInterval(2)
+        while server.isRunning && Date() < deadline { usleep(50_000) }
     }
 
     // MARK: Window
@@ -72,9 +76,111 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
     }
 
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
-        if let body = message.body as? [String: Any], let theme = body["theme"] as? String {
-            applyTheme(theme)
+        guard let body = message.body as? [String: Any] else { return }
+        if let theme = body["theme"] as? String { applyTheme(theme) }
+        if let link = body["open"] as? String, let url = URL(string: link), url.scheme == "https" {
+            NSWorkspace.shared.open(url)
         }
+        if let update = body["update"] as? [String: Any], let link = update["url"] as? String {
+            installUpdate(link)
+        }
+    }
+
+    // MARK: Update (only when the user clicks "Install & restart")
+
+    func reportUpdate(_ state: String, _ message: String = "") {
+        let payload = (try? JSONSerialization.data(withJSONObject: ["state": state, "message": message])) ?? Data()
+        let json = String(data: payload, encoding: .utf8) ?? "{}"
+        DispatchQueue.main.async {
+            self.webView.evaluateJavaScript("window.whcUpdateState && window.whcUpdateState(\(json))", completionHandler: nil)
+        }
+    }
+
+    func installUpdate(_ link: String) {
+        // Only official release downloads from this repository.
+        guard let url = URL(string: link), url.scheme == "https", url.host == "github.com",
+              url.path.hasPrefix("/stfnhdr/watch-him-code/releases/download/") else {
+            reportUpdate("error", "Unexpected download address.")
+            return
+        }
+        let current = Bundle.main.bundleURL
+        let folder = current.deletingLastPathComponent()
+        if current.path.contains("/AppTranslocation/") {
+            reportUpdate("error", "macOS runs this copy from a temporary location. Move Watch Him Code to Applications (or your Desktop), open it from there and try again.")
+            return
+        }
+        if !FileManager.default.isWritableFile(atPath: folder.path) {
+            reportUpdate("error", "No permission to replace the app in \(folder.path). Download the new version from the release page instead.")
+            return
+        }
+        reportUpdate("downloading")
+        URLSession.shared.downloadTask(with: url) { file, response, error in
+            guard let file = file, error == nil, (response as? HTTPURLResponse)?.statusCode == 200 else {
+                self.reportUpdate("error", "Download failed: \(error?.localizedDescription ?? "server error").")
+                return
+            }
+            do {
+                try self.replaceApp(zip: file, current: current)
+            } catch {
+                self.reportUpdate("error", "Update failed: \(error.localizedDescription)")
+            }
+        }.resume()
+    }
+
+    func run(_ tool: String, _ args: [String]) -> Bool {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: tool)
+        p.arguments = args
+        p.standardOutput = FileHandle.nullDevice
+        p.standardError = FileHandle.nullDevice
+        guard (try? p.run()) != nil else { return false }
+        p.waitUntilExit()
+        return p.terminationStatus == 0
+    }
+
+    struct UpdateError: LocalizedError {
+        let errorDescription: String?
+        init(_ text: String) { errorDescription = text }
+    }
+
+    func replaceApp(zip: URL, current: URL) throws {
+        let fm = FileManager.default
+        let work = fm.temporaryDirectory.appendingPathComponent("whc-update-\(UUID().uuidString)")
+        try fm.createDirectory(at: work, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: work) }
+
+        let zipFile = work.appendingPathComponent("update.zip")
+        try fm.moveItem(at: zip, to: zipFile)
+        let unpacked = work.appendingPathComponent("unpacked")
+        guard run("/usr/bin/ditto", ["-x", "-k", zipFile.path, unpacked.path]) else { throw UpdateError("Could not unpack the download.") }
+        guard let newApp = (try fm.contentsOfDirectory(at: unpacked, includingPropertiesForKeys: nil)).first(where: { $0.pathExtension == "app" }),
+              Bundle(url: newApp)?.bundleIdentifier == Bundle.main.bundleIdentifier else {
+            throw UpdateError("The download does not contain Watch Him Code.")
+        }
+        guard run("/usr/bin/codesign", ["--verify", "--deep", newApp.path]) else { throw UpdateError("The new app's signature is broken.") }
+        _ = run("/usr/bin/xattr", ["-dr", "com.apple.quarantine", newApp.path])
+
+        reportUpdate("installing")
+        // Swap while we are still running: a running app can be moved, and macOS
+        // asks for folder access (e.g. Desktop) on our behalf.
+        let backup = current.deletingLastPathComponent().appendingPathComponent(".\(current.lastPathComponent).old")
+        try? fm.removeItem(at: backup)
+        try fm.moveItem(at: current, to: backup)
+        do {
+            try fm.moveItem(at: newApp, to: current)
+        } catch {
+            try? fm.moveItem(at: backup, to: current)
+            throw error
+        }
+        try? fm.removeItem(at: backup)
+
+        // Start the new version once this one has quit.
+        let script = "while kill -0 \(getpid()) 2>/dev/null; do sleep 0.2; done; open \"$0\""
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/bin/sh")
+        p.arguments = ["-c", script, current.path]
+        try p.run()
+        DispatchQueue.main.async { NSApp.terminate(nil) }
     }
 
     func buildMenu() {
@@ -138,6 +244,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         var env = ProcessInfo.processInfo.environment
         env["WHC_NO_OPEN"] = "1"
         env["WHC_PARENT_PID"] = String(getpid()) // server exits if the app crashes
+        env["WHC_APP_VERSION"] = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
         p.environment = env
 
         let pipe = Pipe()

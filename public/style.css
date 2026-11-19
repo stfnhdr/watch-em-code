@@ -445,6 +445,72 @@ button {
   font-size: 12px;
   line-height: 1.45;
 }
+.update-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 12px;
+  background: rgba(var(--add), 0.16);
+  color: rgb(var(--add));
+  font-size: 12px;
+  font-weight: 600;
+  margin-right: 4px;
+}
+.update-pill[hidden] {
+  display: none;
+}
+.update-pill:hover {
+  background: rgba(var(--add), 0.26);
+}
+.update-box {
+  margin: 4px 0 6px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(var(--add), 0.1);
+  border: 1px solid rgba(var(--add), 0.3);
+  font-size: 12.5px;
+}
+.update-box .what {
+  color: var(--text);
+  font-weight: 600;
+}
+.update-box .detail {
+  color: var(--dim);
+  font-size: 12px;
+}
+.update-box .fix {
+  margin-top: 6px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: rgba(var(--del), 0.12);
+  color: var(--text);
+  font-size: 12px;
+}
+.update-box .actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.update-box button {
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--hover);
+  border: 1px solid var(--line);
+  color: var(--text);
+  font-size: 12px;
+}
+.update-box button.primary {
+  background: rgb(var(--add));
+  border-color: transparent;
+  color: #fff;
+}
+.update-box .busy {
+  color: var(--dim);
+  font-size: 12px;
+}
 .status .foot {
   margin-top: 8px;
   padding-top: 8px;
