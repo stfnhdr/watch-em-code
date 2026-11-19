@@ -245,7 +245,7 @@ async function main() {
   seed()
 
   const server = spawn(process.execPath, [path.join(ROOT, 'server.js')], {
-    env: { ...process.env, HOME, USERPROFILE: HOME, WHC_NO_OPEN: '1', WHC_PORT: String(PORT) },
+    env: { ...process.env, HOME, USERPROFILE: HOME, CLAUDE_CONFIG_DIR: '', WHC_NO_OPEN: '1', WHC_PORT: String(PORT), WHC_UPDATE_CHECK: '0', WHC_GIT: '0' },
     stdio: 'ignore',
   })
   const chromePath = findChrome()
@@ -272,9 +272,17 @@ async function main() {
     const go = async settings => {
       await page.send('Page.navigate', { url })
       await sleep(800)
-      await page.send('Runtime.evaluate', { expression: `localStorage.setItem('whc.settings', ${JSON.stringify(JSON.stringify(settings))})` })
+      const all = { dwell: 0, marks: 'session', compare: 'session', autoClose: false, avatar: 'junior', ...settings }
+      await page.send('Runtime.evaluate', { expression: `localStorage.setItem('whc.settings', ${JSON.stringify(JSON.stringify(all))})` })
       await page.send('Page.reload')
-      await sleep(1800)
+      await sleep(2200)
+      await js("typeof toggleStatus === 'function' && toggleStatus(false)")
+    }
+    const js = async expression => (await page.send('Runtime.evaluate', { expression, returnByValue: true })).result?.result?.value
+    /** Screen rectangle of an element (for cropping), with some padding. */
+    const rectOf = async (selector, pad = 0) => {
+      const r = await js(`(() => { const b = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect(); return { x: b.x, y: b.y, width: b.width, height: b.height } })()`)
+      return { x: Math.max(0, r.x - pad), y: Math.max(0, r.y - pad), width: r.width + 2 * pad, height: r.height + 2 * pad }
     }
     const shot = async (name, clip) => {
       const r = await page.send('Page.captureScreenshot', { format: 'png', ...(clip ? { clip: { ...clip, scale: 1 } } : {}) })
@@ -282,8 +290,10 @@ async function main() {
       console.log('✓', name)
     }
 
-    // 1. Editor, dark, inline – caught mid-change with the Pixel Junior talking
-    await go({ view: 'editor', theme: 'dark', diff: 'inline', buddy: true })
+    // 1. Editor, dark, inline – caught mid-change with the Pixel Junior talking.
+    //    The demo files were all created in this session, so "whole session" would
+    //    mark everything – show the edit that is happening instead.
+    await go({ view: 'editor', theme: 'dark', diff: 'inline', buddy: true, marks: 'latest' })
     liveChange()
     await sleep(1500)
     await page.send('Runtime.evaluate', { expression: "document.querySelector('.bubble').textContent = 'A TODO. Future you will love that.'; document.querySelector('.bubble').classList.add('show')" })
@@ -291,7 +301,7 @@ async function main() {
     await shot('editor-dark.png')
 
     // 2. Side by side, dark
-    await go({ view: 'editor', theme: 'dark', diff: 'split', buddy: true })
+    await go({ view: 'editor', theme: 'dark', diff: 'split', buddy: true, marks: 'latest' })
     await shot('side-by-side-dark.png')
 
     // 3. Cards, light
@@ -303,6 +313,20 @@ async function main() {
     await page.send('Runtime.evaluate', { expression: "document.querySelector('.bubble').textContent = 'Writing tests? Who ARE you?'; document.querySelector('.bubble').classList.add('show')" })
     await sleep(400)
     await shot('pixel-junior.png', { x: 0, y: 860 - 260, width: 260, height: 260 })
+
+    // 5. Werner close-up with a speech bubble
+    await go({ view: 'editor', theme: 'dark', diff: 'inline', buddy: true, avatar: 'werner' })
+    await js("document.querySelector('.bubble').textContent = 'Round 3 on app.js. Tricky spot?'; document.querySelector('.bubble').classList.add('show')")
+    await sleep(400)
+    await shot('werner.png', { x: 0, y: 860 - 300, width: 260, height: 300 })
+
+    // 6. Settings panel – with the real defaults (the shots above use instant changes,
+    //    and the update check is off here)
+    await go({ view: 'editor', theme: 'dark', diff: 'inline', buddy: true, dwell: 3 })
+    await js('toggleSettings(true)')
+    await sleep(600)
+    await js("document.getElementById('about-version').textContent = 'Watch Him Code 0.3.4 · up to date'; document.getElementById('check-update').hidden = false")
+    await shot('settings.png', await rectOf('#settings', 12))
 
     page.close()
   } finally {

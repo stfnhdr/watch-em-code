@@ -30,58 +30,76 @@ dependencies**. `npm install` is not part of this story.
 
 ## Features
 
-- **Live, file by file.** New and modified files appear instantly. The view follows the latest
-  change automatically, like a very loyal dog.
+### Watch
+
+- **Live, file by file.** New and modified files appear the moment they land. The view follows
+  the latest change, like a very loyal dog – and keeps each change on screen for a moment
+  (*Show each change*, 0–10 s) so it doesn't jump around like a caffeinated squirrel. Files
+  changed meanwhile queue up and play in order; `Esc` jumps to the newest.
 - **Two views, same powers.**
   - *Editor* – Xcode-flavoured: folder tree, the whole file, changes marked in the gutter.
     Deleted lines briefly appear struck through, then politely collapse.
   - *Cards* – file cards with growing +/− bars and a stack of diffs per file.
 - **Three diff modes.** *New* (just the result), *Inline* (old and new stacked) or *Side by
   side* (old left, new right, gaps hatched like a 90s textbook).
-- **Every session at once.** Running several agents? Each session gets a tab. A pulsing dot
-  tells you which one is currently busy rewriting your life. Close a tab and it comes back when
-  that session gets busy again; *+* opens older sessions. Idle tabs stay open unless you set
-  *Close idle tabs → After 1 h*.
-- **What really changed, like `git diff`.** Each file shows everything the session changed in it
-  as one diff – several edits combined, against the committed state when the session started
-  (outside git: the content before the first edit). The newest edit is still animated.
-  *Settings → Compare with → Last commit* compares against each repo's latest commit instead,
-  exactly like VS Code – after a commit only what came since shows up.
-  *Settings → Marks → Latest edit* marks only the newest edit.
-- **Reset.** Long session, then a PR, then review comments? Click *↺ Reset* (or press `c`) and
-  the tab only shows what changed from now on – again combined per file. Earlier changes are
-  just hidden: closing the *since* pill brings back the whole session.
-- **No frantic jumping.** Each change stays on screen for a few seconds (*Show each change*,
-  0–10 s); files changed meanwhile queue up and play in order. `Esc` jumps to the newest.
-- **Git branch awareness.** Shows the branch of the repo each file lives in – including nested
-  repos and submodules, so you know *which* repo it's breaking.
 - **Catches shell edits too.** Agent sneaks a `sed -i` past you? Watch Him Code asks git what
   changed in the session's repos (subrepos included) and shows it anyway, marked *via shell*.
-- **Status check.** The pulse icon next to the settings (or `i`) checks Node, logs, git, folder
-  access and whether edits are actually visible – and opens by itself if something's off.
+
+### Understand what changed
+
+- **What really changed, like `git diff`.** Each file shows everything the session changed in it
+  as *one* diff – several edits combined, even edits that never made it into the log. Tree, cards
+  and the bar above the file show the net +/−. The newest edit is still the one that animates.
+- **Compare with session start or last commit.** By default you see what the whole session did.
+  Switch to *Last commit* and each repo compares against its latest commit – exactly like VS Code;
+  commits are picked up automatically.
+- **↺ Reset.** Long session, then a PR, then review comments? Click *Reset* (or press `c`) and
+  the tab only shows what changes from now on. Nothing is deleted – the orange *since …* pill
+  brings the whole session back.
+- **Git branch awareness.** Shows the branch of the repo each file lives in – including nested
+  repos and submodules, so you know *which* repo it's breaking.
+
+### Many sessions
+
+- **Every session gets a tab.** A pulsing dot tells you which one is currently busy rewriting
+  your life. Close a tab and it comes back by itself when that session gets busy again.
+- **+ opens older sessions** – your 40 most recent ones, with title or first prompt.
+- **Tabs stay open** until you close them (or set *Close idle tabs → After 1 h*).
+- **Resizable file tree.** Drag its edge; double-click resets it.
+
+### Live with it
+
+- **The Pixel Junior – or Werner.** See below. They're the best part. They know it.
 - **Light, dark or system.** Both are muted. Your retinas have suffered enough.
-- **The Pixel Junior.** See below. He's the best part. He knows it.
-- **Real apps.** A native Mac app and a Windows app, about 1 MB each. Double-click, done.
-  Closing the window keeps them watching in the background (Dock / tray); quit to really stop.
-- **Updates itself – when you say so.** A new release shows up as a little ↑ button. One click
-  on *Install & restart* and the app replaces itself. No ZIP juggling.
+- **Status check.** The pulse icon (or `i`) checks Node, logs, git, folder access and whether
+  edits are actually visible – and opens by itself if something's off.
+- **Real apps.** A native Mac app (DMG) and a Windows app, about 1 MB each. Closing the window
+  keeps them watching in the background (Dock / tray); quit to really stop.
+- **Updates itself – when you say so.** A new release shows up as a little ↑ button (and in the
+  settings). One click on *Install & restart* and the app replaces itself.
+- **Demo.** Nothing running? Press `d` and a made-up session plays in its own tab – handy for
+  showing the app to colleagues.
 
 ![Side-by-side diff](docs/screenshots/side-by-side-dark.png)
 
 ![Cards view in light mode](docs/screenshots/cards-light.png)
 
-## Meet the Pixel Junior
+## Meet the Pixel Junior (and Werner)
 
-<img src="docs/screenshots/pixel-junior.png" width="260" align="right" alt="The Pixel Junior">
+<table><tr>
+<td><img src="docs/screenshots/pixel-junior.png" width="230" alt="The Pixel Junior"></td>
+<td><img src="docs/screenshots/werner.png" width="200" alt="Werner, the team alpaca"></td>
+</tr></table>
 
-He sits in the corner, types along when code comes in, throws a little sheet of paper when a new
-file is born, sweeps up crumbs when code gets deleted, falls asleep after two minutes of silence
-and startles awake when work resumes. Just like a real developer.
+The **Pixel Junior** sits in the corner, types along when code comes in, throws a little sheet of
+paper when a new file is born, sweeps up crumbs when code gets deleted, falls asleep after two
+minutes of silence and startles awake when work resumes. Just like a real developer.
 
-Prefer an alpaca? *Settings → Avatar → Werner* swaps him for Werner Sauer, our team mascot:
-rainbow wool, yellow scarf, permanently unimpressed brows. Same desk, same laptop, same opinions.
+Prefer an alpaca? *Settings → Avatar → Werner* swaps him for **Werner Sauer**, our team mascot:
+rainbow wool, yellow scarf, permanently unimpressed brows – and sparks flying off the laptop while
+he types. Same desk, same opinions.
 
-Occasionally he comments on what he sees. Rarely, briefly, and based only on facts:
+Occasionally they comment on what they see. Rarely, briefly, and based only on facts:
 
 > *"+240 lines in one go. Bold."*
 > *"A TODO. Future you will love that."*
@@ -90,8 +108,25 @@ Occasionally he comments on what he sees. Rarely, briefly, and based only on fac
 > *"CSS time. Good luck centering that div."*
 > *"I was NOT asleep."*
 
-Press **`d`** to make him perform his entire repertoire. Don't like him? Settings → Pixel Junior →
-Off. He won't take it personally. (He will.)
+Press **`d`** for the demo to see the whole repertoire. Don't want company? *Settings → Buddy →
+Off*. They won't take it personally. (They will.)
+
+## Settings
+
+<img src="docs/screenshots/settings.png" width="340" align="right" alt="The settings panel">
+
+| | |
+|---|---|
+| **View** | Editor or Cards |
+| **Diff** | New, Inline or Side by side |
+| **Marks** | *Whole session* – everything that changed in a file; *Latest edit* – only the newest edit |
+| **Compare with** | *Session start* or *Last commit* (like VS Code) |
+| **Show each change** | how long a change stays on screen before the next one, 0–10 s |
+| **Close idle tabs** | *Never* or *After 1 h* without activity |
+| **Theme** | Light, Dark or System |
+| **Buddy** / **Avatar** | Pixel Junior or Werner, or nobody |
+
+At the bottom: the version you're running, with **Check now** for updates.
 
 <br clear="right">
 
@@ -160,12 +195,12 @@ browser at `http://127.0.0.1:4777`.
 Claude Code writes every session to `~/.claude/projects/<project>/<session>.jsonl` – both the
 terminal and the desktop app. Watch Him Code:
 
-1. watches every session that was active in the last hour (plus the ones you keep open),
+1. watches every session that was active in the last hour (plus the tabs you keep open),
 2. reads new lines as they arrive (every 0.6 s),
-3. keeps only entries where a file was created or edited (`Write`, `Edit`, `MultiEdit`, and
-   `NotebookEdit` on a good day),
-4. reconstructs the full file around each change and streams it to the window via
-   Server-Sent Events.
+3. picks out every file the agent created or edited (`Write`, `Edit`, `MultiEdit`,
+   `NotebookEdit`) – and asks git about everything else (see *Shell edits* below),
+4. per file, compares the content at the session start (or the last commit, or your reset)
+   with what's on disk now, and streams it all to the window via Server-Sent Events.
 
 It listens on `127.0.0.1` only. Your code, logs and sessions never leave your machine, nothing
 is uploaded, nothing is "synced to the cloud for a better experience".
@@ -219,7 +254,8 @@ names exactly like that.
 server.js               the whole backend, Node built-ins only
 public/                 the UI (plain HTML, CSS, JS – no framework, no build step)
   app.js                live logic, sessions, views, diffs
-  buddy.js              the Pixel Junior and his opinions
+  buddy.js              the Pixel Junior, Werner and their opinions
+  demo.js               the made-up demo session (key d)
   highlight.js          a tiny home-made syntax highlighter
   logo.js               the pixel logo, letter by letter
 app/macos/              Swift + WKWebView wrapper
