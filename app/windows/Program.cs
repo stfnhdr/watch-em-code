@@ -1,6 +1,7 @@
 // Watch Him Code – lean Windows app.
-// Starts server.js invisibly in the background, shows the UI in its own
-// window (WebView2) and stops the server again when closed.
+// Starts server.js invisibly in the background and shows the UI in its own
+// window (WebView2). Closing the window keeps it running in the notification
+// area (tray); "Quit" there really ends it and stops the server.
 
 using System;
 using System.Diagnostics;
@@ -11,6 +12,7 @@ using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Microsoft.Web.WebView2.Core;
@@ -20,12 +22,24 @@ namespace WatchHimCode
 {
     static class Program
     {
+        const string MutexName = "WatchHimCode.SingleInstance";
+        internal const string ShowEventName = "WatchHimCode.ShowWindow";
+
         [STAThread]
         static void Main()
         {
-            Application.EnableVisualStyles();
-            Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new MainForm());
+            // Only one instance: starting the app again just brings the window back.
+            using (var mutex = new Mutex(true, MutexName, out bool first))
+            {
+                if (!first)
+                {
+                    try { EventWaitHandle.OpenExisting(ShowEventName).Set(); } catch { }
+                    return;
+                }
+                Application.EnableVisualStyles();
+                Application.SetCompatibleTextRenderingDefault(false);
+                Application.Run(new MainForm());
+            }
         }
     }
 
@@ -38,6 +52,10 @@ namespace WatchHimCode
         readonly WebView2 web = new WebView2 { Dock = DockStyle.Fill };
         Process server;
         bool shown;
+        readonly NotifyIcon tray = new NotifyIcon();
+        readonly EventWaitHandle showSignal = new EventWaitHandle(false, EventResetMode.AutoReset, Program.ShowEventName);
+        bool quitting;
+        bool hintShown;
 
         public MainForm()
         {
@@ -50,13 +68,75 @@ namespace WatchHimCode
             web.DefaultBackgroundColor = BackColor;
             Controls.Add(web);
             RestoreWindow();
+            BuildTray();
 
             Load += async (s, e) => await InitAsync();
             FormClosing += (s, e) =>
             {
                 SaveWindow();
+                // Closing the window (X, Alt+F4) only hides it; the server keeps collecting changes.
+                if (e.CloseReason == CloseReason.UserClosing && !quitting)
+                {
+                    e.Cancel = true;
+                    Hide();
+                    if (!hintShown)
+                    {
+                        hintShown = true;
+                        tray.ShowBalloonTip(4000, "Watch Him Code keeps running",
+                            "It keeps watching in the background. Click the icon to open it, right-click → Quit to end it.",
+                            ToolTipIcon.Info);
+                    }
+                    return;
+                }
+                tray.Visible = false;
                 try { if (server != null && !server.HasExited) server.Kill(); } catch { }
             };
+
+            // Another start of the app asks us to show the window.
+            ThreadPool.RegisterWaitForSingleObject(showSignal,
+                (state, timedOut) => BeginInvoke(new Action(ShowFromTray)), null, Timeout.Infinite, false);
+        }
+
+        // ---------------------------------------------------------------
+        // Notification area (tray)
+
+        void BuildTray()
+        {
+            tray.Icon = Icon ?? SystemIcons.Application;
+            tray.Text = "Watch Him Code";
+            var menu = new ContextMenuStrip();
+            var open = menu.Items.Add("Show Watch Him Code", null, (s, e) => ShowFromTray());
+            open.Font = new Font(open.Font, FontStyle.Bold);
+            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add("Quit", null, (s, e) => Quit());
+            tray.ContextMenuStrip = menu;
+            tray.MouseClick += (s, e) => { if (e.Button == MouseButtons.Left) ShowFromTray(); };
+            tray.BalloonTipClicked += (s, e) => ShowFromTray();
+            tray.Visible = true;
+        }
+
+        void ShowFromTray()
+        {
+            Show();
+            if (WindowState == FormWindowState.Minimized) WindowState = FormWindowState.Normal;
+            Activate();
+            BringToFront();
+        }
+
+        void Quit()
+        {
+            quitting = true;
+            Close();
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                tray.Dispose();
+                showSignal.Dispose();
+            }
+            base.Dispose(disposing);
         }
 
         // ---------------------------------------------------------------
@@ -77,7 +157,7 @@ namespace WatchHimCode
                     "Watch Him Code", MessageBoxButtons.YesNo, MessageBoxIcon.Information);
                 if (answer == DialogResult.Yes)
                     Process.Start(new ProcessStartInfo("https://developer.microsoft.com/microsoft-edge/webview2/") { UseShellExecute = true });
-                Close();
+                Quit();
                 return;
             }
 

@@ -20,7 +20,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         DispatchQueue.global(qos: .userInitiated).async { self.start() }
     }
 
-    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+    // Closing the window only hides it: the app and its server keep running in
+    // the background and keep collecting changes. Quit (⌘Q) really ends it.
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+
+    /** Click on the Dock icon (or open the app again): bring the window back. */
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag { showWindow() }
+        return true
+    }
+
+    @objc func showWindow() {
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
 
     func applicationWillTerminate(_ notification: Notification) {
         server?.terminate()
@@ -39,6 +52,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered, defer: false)
         window.title = "Watch Him Code"
+        window.isReleasedWhenClosed = false // closing hides it, the page stays live
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.minSize = NSSize(width: 720, height: 460)
@@ -91,7 +105,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         let windowItem = NSMenuItem()
         main.addItem(windowItem)
         let win = NSMenu(title: "Window")
-        win.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        win.addItem(withTitle: "Show Watch Him Code", action: #selector(showWindow), keyEquivalent: "0")
+        win.addItem(withTitle: "Close (keeps running)", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
         win.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
         windowItem.submenu = win
         NSApp.windowsMenu = win
