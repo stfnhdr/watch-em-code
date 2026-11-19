@@ -7,64 +7,135 @@ const Buddy = (() => {
   const SCALE = 5
   const W = 20
   const H = 16
-  const COLORS = {
-    P: '#e8c27a', // pompom
-    h: '#d9a35a', // beanie
-    H: '#b8843f', // beanie rim
-    s: '#efc8a0', // skin
-    c: '#e3a48e', // cheeks
-    b: '#5f9e8f', // sweater
-    L: '#8d929b', // laptop
-    D: '#6b7079', // laptop base
-    g: '#d8e9e0', // logo
-    e: '#2b2b31', // eyes
-    m: '#9a5b4f', // mouth
-  }
-  // Base figure without eyes, hands and mouth
-  const BASE = [
-    '.........PP.........',
-    '.......hhhhhh.......',
-    '......hhhhhhhh......',
-    '.....hhhhhhhhhh.....',
-    '.....HHHHHHHHHH.....',
-    '.....ssssssssss.....',
-    '.....ssssssssss.....',
-    '.....ssssssssss.....',
-    '.....cssssssssc.....',
-    '......ssssssss......',
-    '....bbbbbbbbbbbb....',
-    '...bbbbbbbbbbbbbb...',
-    '..LLLLLLLLLLLLLLLL..',
-    '..LLLLLLLLLLLLLLLL..',
-    '..LLLLLLLgLLLLLLLL..',
-    '..DDDDDDDDDDDDDDDD..',
-  ]
 
-  const EYES = {
-    open: [[7, 6], [7, 7], [12, 6], [12, 7]],
-    down: [[7, 7], [12, 7]],
-    left: [[6, 6], [6, 7], [11, 6], [11, 7]],
-    right: [[8, 6], [8, 7], [13, 6], [13, 7]],
-    closed: [[6, 7], [7, 7], [12, 7], [13, 7]],
-    wide: [[6, 6], [7, 6], [6, 7], [7, 7], [12, 6], [13, 6], [12, 7], [13, 7]],
-  }
-  const HANDS = {
-    rest: [[4, 11], [5, 11], [14, 11], [15, 11]],
-    typeL: [[4, 10], [5, 10], [14, 11], [15, 11]],
-    typeR: [[4, 11], [5, 11], [14, 10], [15, 10]],
-    up: [[3, 8], [3, 9], [16, 8], [16, 9]],
+  // Avatars: same 20×16 grid, same laptop, same animations. Each one only
+  // defines its colors, a base picture (without eyes, hands and mouth) and
+  // where eyes, hands and the startled mouth go.
+  const CHARACTERS = {
+    // The Pixel Junior: a small original character with a beanie.
+    junior: {
+      name: 'Pixel Junior',
+      colors: {
+        P: '#e8c27a', // pompom
+        h: '#d9a35a', // beanie
+        H: '#b8843f', // beanie rim
+        s: '#efc8a0', // skin
+        c: '#e3a48e', // cheeks
+        b: '#5f9e8f', // sweater
+        L: '#8d929b', // laptop
+        D: '#6b7079', // laptop base
+        g: '#d8e9e0', // logo
+        e: '#2b2b31', // eyes
+        m: '#9a5b4f', // mouth
+      },
+      base: [
+        '.........PP.........',
+        '.......hhhhhh.......',
+        '......hhhhhhhh......',
+        '.....hhhhhhhhhh.....',
+        '.....HHHHHHHHHH.....',
+        '.....ssssssssss.....',
+        '.....ssssssssss.....',
+        '.....ssssssssss.....',
+        '.....cssssssssc.....',
+        '......ssssssss......',
+        '....bbbbbbbbbbbb....',
+        '...bbbbbbbbbbbbbb...',
+        '..LLLLLLLLLLLLLLLL..',
+        '..LLLLLLLLLLLLLLLL..',
+        '..LLLLLLLgLLLLLLLL..',
+        '..DDDDDDDDDDDDDDDD..',
+      ],
+      eyes: {
+        open: [[7, 6], [7, 7], [12, 6], [12, 7]],
+        down: [[7, 7], [12, 7]],
+        left: [[6, 6], [6, 7], [11, 6], [11, 7]],
+        right: [[8, 6], [8, 7], [13, 6], [13, 7]],
+        closed: [[6, 7], [7, 7], [12, 7], [13, 7]],
+        wide: [[6, 6], [7, 6], [6, 7], [7, 7], [12, 6], [13, 6], [12, 7], [13, 7]],
+      },
+      hands: {
+        rest: [[4, 11], [5, 11], [14, 11], [15, 11]],
+        typeL: [[4, 10], [5, 10], [14, 11], [15, 11]],
+        typeR: [[4, 11], [5, 11], [14, 10], [15, 10]],
+        up: [[3, 8], [3, 9], [16, 8], [16, 9]],
+      },
+      hand: 's',
+      mouth: [[9, 9], [10, 9]],
+    },
+
+    // Werner Sauer: the team's alpaca. Rainbow wool, yellow scarf, unimpressed brows.
+    werner: {
+      name: 'Werner',
+      colors: {
+        o: '#4b3b33', // outline
+        E: '#e9dcc6', // ears
+        f: '#f1e6d2', // face
+        n: '#4b3b33', // nose
+        r: '#f3b5b5', // wool: pink
+        y: '#f3ec9e', // wool: yellow
+        g: '#bfe9ae', // wool: green
+        c: '#a6e3df', // wool: cyan
+        b: '#a9c2f0', // wool: blue
+        v: '#c9b5f0', // wool: violet
+        p: '#f2b6dc', // wool: rose
+        S: '#f6c516', // scarf
+        h: '#e9dcc6', // hooves
+        L: '#8d929b', // laptop
+        D: '#6b7079', // laptop base
+        k: '#d8e9e0', // logo
+        e: '#2b2b31', // eyes
+        w: '#6b5244', // brows (unimpressed)
+        m: '#9a5b4f', // mouth
+      },
+      base: [
+        '......o......o......',
+        '.....oEo....oEo.....',
+        '....rryyrrrryyrr....',
+        '...yyggyyggyyggyy...',
+        '...ggcwffffffwcgg...',
+        '...ccbfwffffwfbcc...',
+        '...bbvffffffffvbb...',
+        '...bvvffffffffvvb...',
+        '....vvvffnfffvvv....',
+        '....SSSSSSSSSSSS....',
+        '...pSSSSSSSSSSSSp...',
+        '..ppppSSppvvppvvpp..',
+        '..LLLLLLLLLLLLLLLL..',
+        '..LLLLLLLLLLLLLLLL..',
+        '..LLLLLLLkLLLLLLLL..',
+        '..DDDDDDDDDDDDDDDD..',
+      ],
+      eyes: {
+        open: [[8, 6], [8, 7], [11, 6], [11, 7]],
+        down: [[8, 7], [11, 7]],
+        left: [[7, 6], [7, 7], [10, 6], [10, 7]],
+        right: [[9, 6], [9, 7], [12, 6], [12, 7]],
+        closed: [[7, 7], [8, 7], [11, 7], [12, 7]],
+        wide: [[7, 6], [8, 6], [7, 7], [8, 7], [11, 6], [12, 6], [11, 7], [12, 7]],
+      },
+      hands: {
+        rest: [[4, 11], [5, 11], [14, 11], [15, 11]],
+        typeL: [[4, 10], [5, 10], [14, 11], [15, 11]],
+        typeR: [[4, 11], [5, 11], [14, 10], [15, 10]],
+        up: [[2, 8], [2, 9], [17, 8], [17, 9]],
+      },
+      hand: 'h',
+      mouth: [[9, 8], [10, 8]],
+    },
   }
 
-  function svg(eyes, hands, mouth) {
-    const px = BASE.map(r => r.split(''))
-    for (const [x, y] of HANDS[hands]) px[y][x] = 's'
-    for (const [x, y] of EYES[eyes]) px[y][x] = 'e'
-    if (mouth) for (const [x, y] of mouth) px[y][x] = 'm'
+  function svg(who, eyes, hands, mouth) {
+    const ch = CHARACTERS[who] || CHARACTERS.junior
+    const px = ch.base.map(r => r.split(''))
+    for (const [x, y] of ch.hands[hands]) px[y][x] = ch.hand
+    for (const [x, y] of ch.eyes[eyes]) px[y][x] = 'e'
+    if (mouth) for (const [x, y] of ch.mouth) px[y][x] = 'm'
     let rects = ''
     for (let y = 0; y < H; y++)
       for (let x = 0; x < W; x++) {
         const k = px[y][x]
-        if (k !== '.') rects += `<rect x="${x}" y="${y}" width="1" height="1" fill="${COLORS[k]}"/>`
+        if (k !== '.') rects += `<rect x="${x}" y="${y}" width="1" height="1" fill="${ch.colors[k]}"/>`
       }
     return `<svg width="${W * SCALE}" height="${H * SCALE}" viewBox="0 0 ${W} ${H}" shape-rendering="crispEdges">${rects}</svg>`
   }
@@ -150,6 +221,7 @@ const Buddy = (() => {
     let lastRemark = 0
     let bubbleTimer = null
     let chatty = false
+    let who = 'junior'
 
     const SLEEP_AFTER = 120000
     const TYPE_FOR = 3500
@@ -166,9 +238,9 @@ const Buddy = (() => {
       } else if (mode === 'startle') {
         eyes = 'wide'
         hands = 'up'
-        mouth = [[9, 9], [10, 9]]
+        mouth = true
       }
-      fig.innerHTML = svg(eyes, hands, mouth)
+      fig.innerHTML = svg(who, eyes, hands, mouth)
       root.classList.toggle('sleeping', mode === 'sleep')
     }
 
@@ -252,9 +324,19 @@ const Buddy = (() => {
       lastChange = Date.now() - SLEEP_AFTER - 1
     }
 
+    /** Switch the avatar (setting "Avatar"). */
+    function setCharacter(name) {
+      who = CHARACTERS[name] ? name : 'junior'
+      root.dataset.character = who
+      draw()
+    }
+
     draw()
-    return { onChange, wake, say, setChatty, nap }
+    return { onChange, wake, say, setChatty, nap, setCharacter }
   }
 
-  return { create }
+  /** One frame as SVG, e.g. for previews. */
+  const sprite = (who, eyes = 'open', hands = 'rest', mouth = false) => svg(who, eyes, hands, mouth)
+
+  return { create, sprite, characters: Object.keys(CHARACTERS) }
 })()

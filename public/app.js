@@ -32,7 +32,7 @@ const esc = Highlight.esc
 // ---------------------------------------------------------------------------
 // Settings (stored in the browser)
 
-const DEFAULTS = { view: 'editor', theme: 'system', buddy: true, diff: 'inline' }
+const DEFAULTS = { view: 'editor', theme: 'system', buddy: true, diff: 'inline', avatar: 'junior' }
 const settings = { ...DEFAULTS }
 try {
   Object.assign(settings, JSON.parse(localStorage.getItem('whc.settings') || '{}'))
@@ -69,6 +69,7 @@ function applySettings(changed) {
   document.body.classList.toggle('view-editor', settings.view === 'editor')
   document.body.classList.toggle('view-cards', settings.view === 'cards')
   els.buddy.classList.toggle('hidden', !settings.buddy)
+  buddy.setCharacter(settings.avatar)
   for (const b of els.settings.querySelectorAll('[data-key]')) {
     b.classList.toggle('on', String(settings[b.dataset.key]) === b.dataset.value)
   }

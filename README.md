@@ -65,6 +65,9 @@ He sits in the corner, types along when code comes in, throws a little sheet of 
 file is born, sweeps up crumbs when code gets deleted, falls asleep after two minutes of silence
 and startles awake when work resumes. Just like a real developer.
 
+Prefer an alpaca? *Settings → Avatar → Werner* swaps him for Werner Sauer, our team mascot:
+rainbow wool, yellow scarf, permanently unimpressed brows. Same desk, same laptop, same opinions.
+
 Occasionally he comments on what he sees. Rarely, briefly, and based only on facts:
 
 > *"+240 lines in one go. Bold."*
