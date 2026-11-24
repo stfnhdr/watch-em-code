@@ -213,6 +213,7 @@ browser at `http://127.0.0.1:4777`.
 | ----- | -------------------------------------------- |
 | `Esc` | Back to live (follow the latest change)      |
 | `v`   | Switch view: Editor ↔ Cards                  |
+| `↑` `↓` | Previous / next file (after clicking into the tree or cards) |
 | `s`   | Cycle diff mode: New → Inline → Side by side |
 | `t`   | Cycle theme: Light → Dark → System           |
 | `d`   | Demo: plays a made-up session in its own tab |

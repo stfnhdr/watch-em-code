@@ -930,6 +930,25 @@ els.list.addEventListener('click', e => {
   if (b) pick(b.dataset.path)
 })
 
+// Arrow up/down walks through the files while the navigator is in use
+// (clicked into it last). Clicking anywhere else hands the arrows back.
+let navActive = false
+document.addEventListener('mousedown', e => {
+  navActive = els.list.contains(e.target)
+})
+
+function stepFile(dir) {
+  const items = [...els.list.querySelectorAll('.node.file, .card')]
+  if (!items.length) return
+  const i = items.findIndex(el => el.dataset.path === selected)
+  const next = items[i < 0 ? (dir > 0 ? 0 : items.length - 1) : Math.min(items.length - 1, Math.max(0, i + dir))]
+  if (next.dataset.path === selected) return
+  pick(next.dataset.path)
+  const el = [...els.list.querySelectorAll('.node.file, .card')].find(x => x.dataset.path === next.dataset.path)
+  el?.scrollIntoView({ block: 'nearest' })
+  el?.focus({ preventScroll: true })
+}
+
 // ---------------------------------------------------------------------------
 // Path bar with branch
 
@@ -1594,6 +1613,11 @@ document.addEventListener('keydown', e => {
   // Typing into a field (e.g. a folder path): no shortcuts, Escape only closes the menu
   if (e.target.closest && e.target.closest('input, textarea')) {
     if (e.key === 'Escape') els.sessionMenu.hidden = true
+    return
+  }
+  if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && navActive && els.sessionMenu.hidden && els.settings.hidden) {
+    e.preventDefault()
+    stepFile(e.key === 'ArrowDown' ? 1 : -1)
     return
   }
   if (e.key === 'Escape') {
