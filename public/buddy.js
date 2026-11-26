@@ -171,9 +171,94 @@ const Buddy = (() => {
         [[29, 12], [28, 13], [28, 16], [29, 16], [30, 15], [29, 19], [30, 19], [31, 18]],
       ],
     },
+
+    // Clawde Code: a black-and-white tuxedo cat sitting at the laptop (24×26 at 4 px,
+    // same grid and laptop as the Pixel Junior). Yellow eyes, pink ears and nose,
+    // a white bib and paws, a tail curled up on the right. When code comes in he
+    // goes big-eyed and bats at the keyboard, one paw on the laptop, the other
+    // in the air, leaning into each swipe while fur flies. When it's over he does
+    // a little hop with a happy squint, and he blinks by squinting too.
+    clawde: {
+      name: 'Clawde Code',
+      w: 24,
+      h: 26,
+      scale: 4,
+      colors: {
+        B: '#32323D', // fur
+        E: '#F3AFA5', // inner ears
+        W: '#F5F2EB', // bib, paws
+        N: '#E6808F', // nose
+        L: '#939AA2', // laptop
+        D: '#72787F', // laptop base
+        k: '#DAE8E0', // logo
+        e: '#E7D94F', // eyes
+        m: '#7a3f36', // open mouth
+        z: '#AEB3C0', // flying fur
+      },
+      base: [
+        '........................',
+        '.....BB..........BB.....',
+        '.....BEB........BEB.....',
+        '.....BEEBB....BBEEB.....',
+        '....BBBBBBBBBBBBBBBB....',
+        '....BBBBBBBBBBBBBBBB....',
+        '....BBBBBBBBBBBBBBBB....',
+        '....BBBBBBBBBBBBBBBB....',
+        '....BBBBBBBBBBBBBBBB....',
+        '....BBBBBBBBBBBBBBBB....',
+        '....BBBBBWWWWWWBBBBB....',
+        '....BBBBBWWNNWWBBBBB....',
+        '....BBBBBBWWWWBBBBBB....',
+        '.....BBBBBWWWWBBBBB.....',
+        '......BBBBWWWWBBBB......',
+        '.....BBBBWWWWWWBBBB.....',
+        '....BBBBBWWWWWWBBBBB.BB.',
+        '....BBBBBWWWWWWBBBBB..B.',
+        '....BBBBBWWWWWWBBBBB..B.',
+        '....BBBBBWWWWWWBBBBB..B.',
+        '....BBBBBBBBBBBBBBBBBB..',
+        '..LLLLLLLLLLLLLLLLLLLL..',
+        '..LLLLLLLLLLLLLLLLLLLL..',
+        '..LLLLLLLLLkkLLLLLLLLL..',
+        '..LLLLLLLLLLLLLLLLLLLL..',
+        '..DDDDDDDDDDDDDDDDDDDD..',
+      ],
+      eyes: {
+        open: [[7, 8], [8, 8], [7, 9], [8, 9], [15, 8], [16, 8], [15, 9], [16, 9]],
+        down: [[7, 9], [8, 9], [15, 9], [16, 9]],
+        left: [[6, 8], [7, 8], [6, 9], [7, 9], [14, 8], [15, 8], [14, 9], [15, 9]],
+        right: [[8, 8], [9, 8], [8, 9], [9, 9], [16, 8], [17, 8], [16, 9], [17, 9]],
+        // the cat squint: a thin yellow line
+        closed: [[6, 9], [7, 9], [8, 9], [15, 9], [16, 9], [17, 9]],
+        wide: [
+          [6, 7], [7, 7], [8, 7], [6, 8], [7, 8], [8, 8], [6, 9], [7, 9], [8, 9],
+          [15, 7], [16, 7], [17, 7], [15, 8], [16, 8], [17, 8], [15, 9], [16, 9], [17, 9],
+        ],
+      },
+      hands: {
+        // sitting: front legs down to the laptop
+        rest: [[7, 19], [8, 19], [15, 19], [16, 19], [7, 20], [8, 20], [15, 20], [16, 20]],
+        // batting: one paw slams the laptop, the other is up in the air
+        typeL: [[5, 20], [6, 20], [5, 21], [6, 21], [21, 8], [22, 8], [21, 9], [22, 9]],
+        typeR: [[17, 20], [18, 20], [17, 21], [18, 21], [1, 8], [2, 8], [1, 9], [2, 9]],
+        up: [[1, 8], [2, 8], [1, 9], [2, 9], [21, 8], [22, 8], [21, 9], [22, 9]],
+      },
+      hand: 'W',
+      mouth: [[11, 12], [12, 12]],
+      // flying fur, two frames shown alternately while typing
+      sparks: [
+        [[2, 14], [0, 16], [3, 17], [1, 19], [22, 13], [23, 15], [23, 17], [23, 19]],
+        [[1, 13], [3, 15], [0, 17], [2, 18], [23, 12], [22, 14], [23, 16], [23, 18]],
+      ],
+      typingEyes: 'wide', // big eyes on the keyboard instead of looking down
+      tilt: 1.5, // degrees he leans into each swipe while typing
+      hop: true, // little hop with a squint when the typing stops
+    },
   }
 
-  function svg(who, eyes, hands, mouth, spark = -1) {
+  // `tilted`: the figure is drawn rotated. Pixels then overlap a little so no
+  // hairline seams show between them.
+  function svg(who, eyes, hands, mouth, spark = -1, tilted = false) {
     const ch = CHARACTERS[who] || CHARACTERS.junior
     const w = ch.w || W
     const h = ch.h || H
@@ -183,13 +268,17 @@ const Buddy = (() => {
     for (const [x, y] of ch.eyes[eyes]) px[y][x] = 'e'
     if (mouth) for (const [x, y] of ch.mouth) px[y][x] = 'm'
     if (spark >= 0 && ch.sparks) for (const [x, y] of ch.sparks[spark % ch.sparks.length]) px[y][x] = 'z'
+    const bleed = tilted ? 0.08 : 0
     let rects = ''
     for (let y = 0; y < h; y++)
-      for (let x = 0; x < w; x++) {
+      for (let x = 0; x < w; ) {
         const k = px[y][x]
-        if (k !== '.') rects += `<rect x="${x}" y="${y}" width="1" height="1" fill="${ch.colors[k]}"/>`
+        let run = 1
+        while (x + run < w && px[y][x + run] === k) run++
+        if (k !== '.') rects += `<rect x="${x}" y="${y}" width="${run + bleed}" height="${1 + bleed}" fill="${ch.colors[k]}"/>`
+        x += run
       }
-    return `<svg width="${w * scale}" height="${h * scale}" viewBox="0 0 ${w} ${h}" shape-rendering="crispEdges">${rects}</svg>`
+    return `<svg width="${w * scale}" height="${h * scale}" viewBox="0 0 ${w} ${h}" shape-rendering="${tilted ? 'auto' : 'crispEdges'}">${rects}</svg>`
   }
 
   // Speech bubbles: rare, short, based only on facts about the change.
@@ -278,13 +367,18 @@ const Buddy = (() => {
     const SLEEP_AFTER = 120000
     const TYPE_FOR = 3500
 
+    let squintUntil = 0
+
     function draw() {
+      const ch = CHARACTERS[who]
       let eyes = look
       let hands = 'rest'
       let mouth = null
       if (mode === 'typing') {
-        eyes = 'down'
+        eyes = ch.typingEyes || 'down'
         hands = frame % 2 ? 'typeL' : 'typeR'
+      } else if (Date.now() < squintUntil) {
+        eyes = 'closed'
       } else if (mode === 'sleep') {
         eyes = 'closed'
       } else if (mode === 'startle') {
@@ -292,8 +386,23 @@ const Buddy = (() => {
         hands = 'up'
         mouth = true
       }
-      fig.innerHTML = svg(who, eyes, hands, mouth, mode === 'typing' ? Math.floor(frame / 2) : -1)
+      // lean into the paw that hits the laptop
+      const tilt = mode === 'typing' && ch.tilt ? (hands === 'typeL' ? -ch.tilt : ch.tilt) : 0
+      fig.innerHTML = svg(who, eyes, hands, mouth, mode === 'typing' ? Math.floor(frame / 2) : -1, !!tilt)
+      fig.style.rotate = tilt ? `${tilt}deg` : ''
       root.classList.toggle('sleeping', mode === 'sleep')
+    }
+
+    function jump() {
+      fig.classList.remove('jump')
+      void fig.offsetWidth
+      fig.classList.add('jump')
+    }
+
+    /** Done typing: a little hop with a happy squint (characters with `hop`). */
+    function hop() {
+      squintUntil = Date.now() + 300
+      jump()
     }
 
     function say(text) {
@@ -316,10 +425,12 @@ const Buddy = (() => {
     setInterval(() => {
       const idle = Date.now() - lastChange
       if (mode === 'startle') return
+      const before = mode
       if (idle < TYPE_FOR) mode = 'typing'
       else if (lastChange && idle > SLEEP_AFTER) mode = 'sleep'
       else if (!lastChange && idle > SLEEP_AFTER) mode = 'sleep'
       else mode = 'idle'
+      if (before === 'typing' && mode === 'idle' && CHARACTERS[who].hop) hop()
       frame++
       if (mode === 'idle' && frame % 6 === 0) {
         const r = Math.random()
@@ -331,9 +442,7 @@ const Buddy = (() => {
     function startle() {
       mode = 'startle'
       draw()
-      fig.classList.remove('jump')
-      void fig.offsetWidth
-      fig.classList.add('jump')
+      jump()
       setTimeout(() => {
         mode = 'typing'
         draw()

@@ -95,7 +95,7 @@ folder is remembered as it was when you started watching. Close the tab to stop 
 
 ### Live with it
 
-- **The Pixel Junior – or Werner.** See below. They're the best part. They know it.
+- **The Pixel Junior – or Werner, or Clawde.** See below. They're the best part. They know it.
 - **Light, dark or system.** Both are muted. Your retinas have suffered enough.
 - **Status check.** The pulse icon (or `i`) checks Node, logs, git, folder access and whether
   edits are actually visible – and opens by itself if something's off.
@@ -110,7 +110,7 @@ folder is remembered as it was when you started watching. Close the tab to stop 
 
 ![Cards view in light mode](docs/screenshots/cards-light.png)
 
-## Meet the Pixel Junior (and Werner)
+## Meet the Pixel Junior (and Werner, and Clawde)
 
 <table><tr>
 <td><img src="docs/screenshots/pixel-junior.png" width="230" alt="The Pixel Junior"></td>
@@ -124,6 +124,11 @@ minutes of silence and startles awake when work resumes. Just like a real develo
 Prefer an alpaca? *Settings → Avatar → Werner* swaps him for **Werner Sauer**, our team mascot:
 rainbow wool, yellow scarf, permanently unimpressed brows – and sparks flying off the laptop while
 he types. Same desk, same opinions.
+
+Or *Settings → Avatar → Clawde* for **Clawde Code**, a black-and-white tuxedo cat with yellow
+eyes who looks over Claude's shoulder all day. While code comes in he goes big-eyed and bats at
+the keyboard – one paw on the laptop, the other in the air, fur flying. When the burst is over he
+does a little hop with a happy squint, then sits back down as if nothing happened.
 
 Occasionally they comment on what they see. Rarely, briefly, and based only on facts:
 
@@ -150,7 +155,7 @@ Off*. They won't take it personally. (They will.)
 | **Show each change** | how long a change stays on screen before the next one, 0–10 s |
 | **Close idle tabs** | *Never* or *After 1 h* without activity |
 | **Theme** | Light, Dark or System |
-| **Buddy** / **Avatar** | Pixel Junior or Werner, or nobody |
+| **Buddy** / **Avatar** | Pixel Junior, Werner or Clawde, or nobody |
 
 At the bottom: the version you're running, with **Check now** for updates.
 
@@ -307,7 +312,7 @@ server/                 the backend, Node built-ins only – one module per job
   window.js, main.js    opening a window, start-up
 public/                 the UI (plain HTML, CSS, JS – no framework, no build step)
   app.js                live logic, tabs, views, diffs
-  buddy.js              the Pixel Junior, Werner and their opinions
+  buddy.js              the Pixel Junior, Werner, Clawde and their opinions
   demo.js               the made-up demo session (key d)
   highlight.js          a tiny home-made syntax highlighter
   logo.js               the pixel logo, letter by letter
